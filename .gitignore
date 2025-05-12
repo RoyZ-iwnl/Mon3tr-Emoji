@@ -1,0 +1,21 @@
+# Ignore IntelliJ IDEA files in all subdirectories
+**/*.iml
+**/.gradle/
+**/local.properties
+**/.idea/caches/
+**/.idea/libraries/
+**/.idea/modules.xml
+**/.idea/workspace.xml
+**/.idea/navEditor.xml
+**/.idea/assetWizardSettings.xml
+
+# Ignore DS_Store files in all directories
+**/.DS_Store
+
+# Ignore build directories in all subdirectories
+**/build/
+**/captures/
+**/.externalNativeBuild/
+**/.cxx/
+**/local.properties
+**/COMA/
