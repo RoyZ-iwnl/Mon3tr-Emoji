@@ -192,6 +192,9 @@ public class MainActivity extends AppCompatActivity implements BleManager.BleCal
         new Thread(() -> {
             try {
                 // 开始传输
+
+                String filename = "img_" + System.currentTimeMillis() + ".bin";
+                bleManager.sendCommand(BleConstants.CMD_START_TRANSFER, filename.getBytes());
                 bleManager.sendCommand(BleConstants.CMD_START_TRANSFER,
                         new byte[]{(byte) imageList.size()});
                 Thread.sleep(100); // 等待命令处理

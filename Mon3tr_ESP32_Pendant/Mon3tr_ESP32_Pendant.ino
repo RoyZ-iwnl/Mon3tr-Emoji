@@ -11,7 +11,6 @@
 #define TOUCH_SCL          5
 #define TOUCH_INT          0
 #define TOUCH_RST          1
-#define LED_PIN           3  // BLE连接指示灯
 #define TFT_BL            3  // 屏幕背光引脚，与LED_PIN相同
 
 // BLE服务和特征UUID
@@ -73,14 +72,39 @@ void controlBacklight(bool on);
 
 class ServerCallbacks: public NimBLEServerCallbacks {
     void onConnect(NimBLEServer* pServer) {
-        Serial.println("客户端已连接");
-        digitalWrite(LED_PIN, HIGH);
+    Serial.println("客户端已连接");
+    Serial.printf("连接时间: %lu ms\n", millis());
+    Serial.println("连接状态: " + String(pServer->getConnectedCount()) + " 个客户端");
+    
+    //APP通知
+    if (pCommandCharacteristic) {
+        StaticJsonDocument<100> doc;
+        doc["status"] = "connected";
+        doc["time"] = millis();
+        
+        String jsonStr;
+        serializeJson(doc, jsonStr);
+        pCommandCharacteristic->setValue(jsonStr.c_str());
+        pCommandCharacteristic->notify();
+        Serial.println("发送连接成功通知");
     }
+}
 
     void onDisconnect(NimBLEServer* pServer) {
         Serial.println("客户端已断开");
-        digitalWrite(LED_PIN, LOW);
-        NimBLEDevice::startAdvertising();
+        
+        // Reset state variables
+        isTransferring = false;
+        if (currentImageFile) {
+            currentImageFile.close();
+        }
+        
+        // Reset BLE advertising
+        NimBLEDevice::getAdvertising()->stop();
+        delay(100);
+        NimBLEDevice::getAdvertising()->start();
+        
+        Serial.println("已重置BLE状态，准备好重新连接");
     }
 };
 
@@ -102,8 +126,21 @@ void processCommand(uint8_t* data, size_t length) {
     switch (cmd) {
         case CMD_START_TRANSFER:
             if (length > 1) {
+                // 检查存储空间
+                if (SPIFFS.totalBytes() - SPIFFS.usedBytes() < 115200) {  // 预留大约 115KB
+                    Serial.println("存储空间不足");
+                    // 通知客户端存储空间不足
+                    pCommandCharacteristic->setValue("ERROR: Storage full");
+                    pCommandCharacteristic->notify();
+                    return;
+                }
+                
                 currentImageName = "/" + String(data[1]) + ".bin";
                 currentImageFile = SPIFFS.open(currentImageName, "w");
+                if (!currentImageFile) {
+                    Serial.println("无法创建文件：" + currentImageName);
+                    return;
+                }
                 isTransferring = true;
                 Serial.println("开始接收图片: " + currentImageName);
             }
@@ -111,7 +148,23 @@ void processCommand(uint8_t* data, size_t length) {
 
         case CMD_IMAGE_DATA:
             if (isTransferring && currentImageFile) {
-                currentImageFile.write(data + 1, length - 1);
+                if (length <= 1) {
+                    Serial.println("警告: 接收到空数据块");
+                    break;
+                }
+                
+                size_t bytesWritten = currentImageFile.write(data + 1, length - 1);
+                Serial.printf("接收数据块: %d 字节, 写入: %d 字节\n", length - 1, bytesWritten);
+                
+                if (bytesWritten != length - 1) {
+                    Serial.println("错误: 写入文件失败");
+                    pCommandCharacteristic->setValue("ERROR: Write failed");
+                    pCommandCharacteristic->notify();
+                }
+            } else {
+                Serial.println("错误: 收到数据但未开始传输");
+                pCommandCharacteristic->setValue("ERROR: Transfer not started");
+                pCommandCharacteristic->notify();
             }
             break;
 
@@ -119,10 +172,41 @@ void processCommand(uint8_t* data, size_t length) {
             if (isTransferring && currentImageFile) {
                 currentImageFile.close();
                 isTransferring = false;
-                updateImageList();
                 Serial.println("图片接收完成");
+                
+                // update图片序列
+                updateImageList();
+                
+                // 发送状态
+                StaticJsonDocument<100> doc;
+                doc["status"] = "transfer_complete";
+                doc["filename"] = currentImageName;
+                String jsonStr;
+                serializeJson(doc, jsonStr);
+                pCommandCharacteristic->setValue(jsonStr.c_str());
+                pCommandCharacteristic->notify();
+                
+                // 显示新传的
+                if (totalImages > 0) {
+                    // 找INDEX
+                    int newImageIndex = -1;
+                    for (int i = 0; i < totalImages; i++) {
+                        if (imageList[i].filename == currentImageName) {
+                            newImageIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    if (newImageIndex >= 0) {
+                        currentImage = newImageIndex;
+                        Serial.printf("显示新上传的图片(索引: %d): %s\n", currentImage, currentImageName.c_str());
+                        displayImage(currentImage);
+                    } else {
+                        Serial.println("警告: 无法找到新上传的图片");
+                    }
+                }
             }
-            break;
+        break;
 
         case CMD_DELETE_IMAGE:
             if (length > 1) {
@@ -258,18 +342,47 @@ void updateImageList() {
 }
 
 void displayImage(int index) {
-    if (index >= totalImages) return;
+    if (index >= totalImages) {
+        Serial.println("错误：图片索引超出范围");
+        return;
+    }
 
     File f = SPIFFS.open(imageList[index].filename, "r");
-    if (f) {
-        tft.fillScreen(TFT_BLACK);
-        uint8_t buf[IMAGE_WIDTH * 2];
-        for (int y = 0; y < IMAGE_HEIGHT; y++) {
-            f.read(buf, IMAGE_WIDTH * 2);
-            tft.pushImage(0, y, IMAGE_WIDTH, 1, (uint16_t*)buf);
-        }
-        f.close();
+    if (!f) {
+        Serial.println("错误：无法打开图片文件：" + imageList[index].filename);
+        return;
     }
+
+    Serial.println("开始显示图片：" + imageList[index].filename);
+    Serial.printf("文件大小: %d 字节\n", f.size());
+    
+    if (f.size() < 100) {
+        Serial.println("警告: 文件可能太小，无效的图片");
+        f.close();
+        return;
+    }
+
+    tft.fillScreen(TFT_BLACK);
+    uint8_t buf[IMAGE_WIDTH * 2];
+    int totalRows = 0;
+    
+    for (int y = 0; y < IMAGE_HEIGHT; y++) {
+        if (f.available() >= IMAGE_WIDTH * 2) {
+            size_t bytesRead = f.read(buf, IMAGE_WIDTH * 2);
+            if (bytesRead == IMAGE_WIDTH * 2) {
+                tft.pushImage(0, y, IMAGE_WIDTH, 1, (uint16_t*)buf);
+                totalRows++;
+            } else {
+                Serial.printf("行 %d 读取不完整: %d 字节\n", y, bytesRead);
+            }
+        } else {
+            Serial.printf("文件结束于行 %d\n", y);
+            break;
+        }
+    }
+    f.close();
+    
+    Serial.printf("图片显示完成，总行数：%d/%d\n", totalRows, IMAGE_HEIGHT);
 }
 
 // 控制背光的函数
@@ -289,12 +402,23 @@ void setup() {
         Serial.println("SPIFFS挂载失败");
         return;
     }
+    //容量
+    Serial.printf("SPIFFS Total: %d bytes, Used: %d bytes, Free: %d bytes\n", 
+        SPIFFS.totalBytes(), SPIFFS.usedBytes(), 
+        SPIFFS.totalBytes() - SPIFFS.usedBytes());
+    Serial.println("SPIFFS 文件列表:");
+    File root = SPIFFS.open("/");
+    File file = root.openNextFile();
+    while (file) {
+        Serial.printf("  %s, 大小: %d 字节 \n", file.name(), file.size());
+        file = root.openNextFile();
+    }
+
     Serial.println("SPIFFS挂载成功");
     delay(100);
 
     // 2. 设置GPIO
     Serial.println("设置GPIO...");
-    pinMode(LED_PIN, OUTPUT);
     pinMode(TFT_BL, OUTPUT);
     controlBacklight(false);  // 先关闭背光
     
