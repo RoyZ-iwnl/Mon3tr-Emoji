@@ -2,29 +2,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 基本蓝牙权限 -->
-    <uses-permission android:name="android.permission.BLUETOOTH"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    <!-- 权限声明 -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
-    <!-- Android 12及以上需要的新权限 -->
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
-        android:usesPermissionFlags="neverForLocation"
-        tools:targetApi="31" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
-
-    <!-- 定位权限（蓝牙扫描需要） -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-
-    <!-- 声明需要BLE功能 -->
+    <!-- 声明使用蓝牙低功耗 -->
     <uses-feature
         android:name="android.hardware.bluetooth_le"
-        android:required="true"/>
-
-    <uses-feature
-        android:name="android.hardware.bluetooth_le"
-        android:required="true"
-        tools:ignore="DuplicateUsesFeature" />
+        android:required="true" />
 
     <application
         android:allowBackup="true"
@@ -35,12 +27,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.M3"
-        android:requestLegacyExternalStorage="true">
-
+        tools:targetApi="31">
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:configChanges="orientation|keyboardHidden|screenSize">
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

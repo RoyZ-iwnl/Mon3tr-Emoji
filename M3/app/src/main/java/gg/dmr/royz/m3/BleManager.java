@@ -70,31 +70,21 @@ public class BleManager {
         public void onScanResult(int callbackType, ScanResult result) {
             BluetoothDevice device = result.getDevice();
             String deviceName = device.getName();
-            // 添加日志输出所有扫描到的设备
-            Log.d(TAG, "扫描到设备: " +
-                    (deviceName != null ? deviceName : "未知") +
+            
+            // 添加日志
+            Log.d(TAG, "扫描到设备: " + (deviceName != null ? deviceName : "未知") + 
                     " MAC: " + device.getAddress());
 
             // 如果设备名称为null，尝试从广播数据获取
             if (deviceName == null && result.getScanRecord() != null) {
-                byte[] scanRecord = result.getScanRecord().getBytes();
-                deviceName = parseScanRecord(scanRecord);
+                deviceName = result.getScanRecord().getDeviceName();
             }
 
-            if (deviceName != null) {
-                Log.d(TAG, "设备名称: " + deviceName + " RSSI: " + result.getRssi());
-                if (deviceName.equals(BleConstants.DEVICE_NAME)) {
-                    stopScan();
-                    bleCallback.onDeviceFound(device);
-                }
+            if (deviceName != null && deviceName.equals(BleConstants.DEVICE_NAME)) {
+                Log.d(TAG, "找到目标设备: " + deviceName);
+                stopScan();
+                bleCallback.onDeviceFound(device);
             }
-        }
-
-        @Override
-        public void onScanFailed(int errorCode) {
-            Log.e(TAG, "扫描失败，错误代码: " + errorCode);
-            stopScan();
-            bleCallback.onError("扫描失败: " + getErrorMessage(errorCode));
         }
     };
 
@@ -138,9 +128,14 @@ public class BleManager {
             if (ActivityCompat.checkSelfPermission(context,
                     Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
                 bluetoothGatt.disconnect();
-                bluetoothGatt.close();
+                // 延迟关闭以确保断开连接完成
+                handler.postDelayed(() -> {
+                    if (bluetoothGatt != null) {
+                        bluetoothGatt.close();
+                        bluetoothGatt = null;
+                    }
+                }, 500);
             }
-            bluetoothGatt = null;
         }
     }
 
@@ -246,12 +241,19 @@ public class BleManager {
                 Log.i(TAG, "已连接到GATT服务器");
                 if (ActivityCompat.checkSelfPermission(context,
                         Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-                    gatt.discoverServices();
+                    // 请求更高的MTU
+                    gatt.requestMtu(512);
+                    // 延迟发现服务
+                    handler.postDelayed(() -> gatt.discoverServices(), 500);
                 }
                 handler.post(() -> bleCallback.onConnected());
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.i(TAG, "与GATT服务器断开连接");
                 handler.post(() -> bleCallback.onDisconnected());
+                // 确保完全关闭
+                if (gatt != null) {
+                    gatt.close();
+                }
             }
         }
 

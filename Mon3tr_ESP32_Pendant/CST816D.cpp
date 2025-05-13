@@ -8,33 +8,30 @@ CST816D::CST816D(int8_t sda_pin, int8_t scl_pin, int8_t rst_pin, int8_t int_pin)
 }
 
 void CST816D::begin(void) {
-    // 初始化I2C
-    if (_sda != -1 && _scl != -1) {
-        Wire.begin(_sda, _scl);
-    } else {
-        Wire.begin();
-    }
-
-    // 配置中断引脚
-    if (_int != -1) {
-        pinMode(_int, OUTPUT);
-        digitalWrite(_int, HIGH);
-        delay(1);
-        digitalWrite(_int, LOW);
-        delay(1);
-    }
-
-    // 配置复位引脚
-    if (_rst != -1) {
-        pinMode(_rst, OUTPUT);
-        digitalWrite(_rst, LOW);
-        delay(10);
-        digitalWrite(_rst, HIGH);
-        delay(300);
-    }
-
-    // 初始化触摸芯片
-    i2c_write(0xFE, 0xFF); // 禁止自动进入低功耗模式
+  Wire.begin(_sda, _scl);
+  
+  // 复位触摸芯片
+  if (_rst != -1) {
+    pinMode(_rst, OUTPUT);
+    digitalWrite(_rst, HIGH);
+    delay(5);
+    digitalWrite(_rst, LOW);
+    delay(10);
+    digitalWrite(_rst, HIGH);
+    delay(50);
+  }
+  
+  // 中断引脚设置
+  if (_int != -1) {
+    pinMode(_int, INPUT_PULLUP);
+  }
+  
+  delay(100); // 稳定化延迟
+  
+  // 配置触摸控制器启用滑动手势
+  i2c_write(0xFA, 0x01); // 启用手势检测
+  i2c_write(0xEC, 0x01); // 滑动灵敏度设置
+  i2c_write(0xFE, 0xFF); // 禁用自动休眠
 }
 
 bool CST816D::getTouch(uint16_t *x, uint16_t *y, uint8_t *gesture) {

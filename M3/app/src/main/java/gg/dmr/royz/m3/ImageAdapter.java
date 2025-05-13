@@ -10,61 +10,45 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide;
+import com.google.android.material.card.MaterialCardView;
+
 import java.util.List;
 
+import gg.dmr.royz.m3.databinding.ItemImageBinding;
+
 public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> {
-    private Context context;
-    private List<ImageItem> imageList;
-    private OnItemClickListener listener;
+    private final List<ImageInfo> imageList;
+    private final OnItemClickListener clickListener;
+    private final OnItemLongClickListener longClickListener;
 
     public interface OnItemClickListener {
-        void onItemClick(int position);
-        void onItemLongClick(int position);
+        void onItemClick(ImageInfo image);
     }
 
-    public ImageAdapter(Context context, List<ImageItem> imageList) {
-        this.context = context;
+    public interface OnItemLongClickListener {
+        void onItemLongClick(ImageInfo image);
+    }
+
+    public ImageAdapter(List<ImageInfo> imageList,
+                        OnItemClickListener clickListener,
+                        OnItemLongClickListener longClickListener) {
         this.imageList = imageList;
-    }
-
-    public void setOnItemClickListener(OnItemClickListener listener) {
-        this.listener = listener;
+        this.clickListener = clickListener;
+        this.longClickListener = longClickListener;
     }
 
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(context).inflate(R.layout.item_image, parent, false);
-        return new ViewHolder(view);
+        ItemImageBinding binding = ItemImageBinding.inflate(
+                LayoutInflater.from(parent.getContext()), parent, false);
+        return new ViewHolder(binding);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        ImageItem item = imageList.get(position);
-
-        // 使用Glide加载图片
-        Glide.with(context)
-                .load(item.getImagePath())
-                .centerCrop()
-                .into(holder.imageView);
-
-        holder.textView.setText("图片 " + (position + 1));
-
-        // 设置点击事件
-        holder.itemView.setOnClickListener(v -> {
-            if (listener != null) {
-                listener.onItemClick(position);
-            }
-        });
-
-        holder.itemView.setOnLongClickListener(v -> {
-            if (listener != null) {
-                listener.onItemLongClick(position);
-                return true;
-            }
-            return false;
-        });
+        ImageInfo image = imageList.get(position);
+        holder.bind(image);
     }
 
     @Override
@@ -72,14 +56,43 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> 
         return imageList.size();
     }
 
-    static class ViewHolder extends RecyclerView.ViewHolder {
-        ImageView imageView;
-        TextView textView;
+    class ViewHolder extends RecyclerView.ViewHolder {
+        private final ItemImageBinding binding;
 
-        ViewHolder(View itemView) {
-            super(itemView);
-            imageView = itemView.findViewById(R.id.imageView);
-            textView = itemView.findViewById(R.id.textView);
+        ViewHolder(ItemImageBinding binding) {
+            super(binding.getRoot());
+            this.binding = binding;
+        }
+
+        void bind(ImageInfo image) {
+            // 设置图片名称
+            String displayName = image.name.replace("/img_", "").replace(".bin", "");
+            binding.imageName.setText("图片 " + displayName);
+
+            // 设置索引
+            binding.imageIndex.setText("#" + image.index);
+
+            // 设置激活状态
+            binding.imageStatus.setText(image.active ? "激活" : "未激活");
+            binding.imageStatus.setTextColor(binding.getRoot().getContext().getColor(
+                    image.active ? android.R.color.holo_green_dark : android.R.color.holo_red_dark));
+
+            // 设置占位图
+            binding.imageView.setImageResource(R.drawable.ic_image_placeholder);
+
+            // 设置点击事件
+            binding.getRoot().setOnClickListener(v -> {
+                if (clickListener != null) {
+                    clickListener.onItemClick(image);
+                }
+            });
+
+            binding.getRoot().setOnLongClickListener(v -> {
+                if (longClickListener != null) {
+                    longClickListener.onItemLongClick(image);
+                }
+                return true;
+            });
         }
     }
 }
