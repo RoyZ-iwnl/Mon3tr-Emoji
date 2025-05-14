@@ -1,32 +1,9 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.M3" parent="Theme.Material3.DayNight">
-        <!-- Material 3 color attributes -->
-        <item name="colorPrimary">@color/my_light_primary</item>
-        <item name="colorOnPrimary">@color/my_light_on_primary</item>
-        <item name="colorPrimaryContainer">@color/my_light_primary_variant</item>
-        <item name="colorOnPrimaryContainer">@color/my_light_on_primary</item>
-        <item name="colorSecondary">@color/my_light_secondary</item>
-        <item name="colorOnSecondary">@color/my_light_on_secondary</item>
-        <item name="colorSecondaryContainer">@color/my_light_secondary_variant</item>
-        <item name="colorOnSecondaryContainer">@color/my_light_on_secondary</item>
-        <item name="colorError">@color/my_light_error</item>
-        <item name="colorOnError">@color/my_light_on_error</item>
-        <item name="android:colorBackground">@color/my_light_background</item>
-        <item name="colorOnBackground">@color/my_light_on_background</item>
-        <item name="colorSurface">@color/my_light_surface</item>
-        <item name="colorOnSurface">@color/my_light_on_surface</item>
-        <!-- Status bar color -->
-        <item name="android:statusBarColor">@color/my_light_primary_variant</item>
+    <style name="Base.Theme.M3" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
     </style>
 
-    <style name="Theme.M3.NoActionBar">
-        <item name="windowActionBar">false</item>
-        <item name="windowNoTitle">true</item>
-    </style>
-
-    <style name="Theme.M3.AppBarOverlay" parent="ThemeOverlay.Material3.ActionBar" />
-
-    <style name="Theme.M3.PopupOverlay" parent="ThemeOverlay.Material3.Light" />
+    <style name="Theme.M3" parent="Base.Theme.M3" />
 </resources>

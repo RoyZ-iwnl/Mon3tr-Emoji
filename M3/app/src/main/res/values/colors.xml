@@ -1,17 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="my_light_primary">#2196F3</color>
-    <color name="my_light_primary_variant">#1976D2</color>
-    <color name="my_light_on_primary">#FFFFFF</color>
-    <color name="my_light_secondary">#03DAC5</color>
-    <color name="my_light_secondary_variant">#018786</color>
-    <color name="my_light_on_secondary">#000000</color>
-    <color name="my_light_error">#F44336</color>
-    <color name="my_light_on_error">#FFFFFF</color>
-    <color name="my_light_background">#FFFFFF</color>
-    <color name="my_light_on_background">#000000</color>
-    <color name="my_light_surface">#FFFFFF</color>
-    <color name="my_light_on_surface">#000000</color>
-    <color name="white">#FFFFFF</color>
-    <color name="black">#000000</color>
+    <color name="colorPrimary">#1976D2</color>
+    <color name="colorPrimaryDark">#1565C0</color>
+    <color name="colorAccent">#FF4081</color>
 </resources>
