@@ -50,9 +50,27 @@ void updateImageList() {
 
   while (file && totalImages < MAX_IMAGES) {
     String filename = String(file.name());
-    if (!file.isDirectory() && filename.endsWith(".ibin")) {
-      imageList[totalImages].filename = "/" + filename;
+    if (!file.isDirectory() && filename.startsWith("/img_")) {
+      imageList[totalImages].filename = filename;
       imageList[totalImages].active = true;
+      
+      // 获取文件大小
+      imageList[totalImages].fileSize = file.size();
+      
+      // 获取格式
+      if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
+        imageList[totalImages].format = 0x10; // JPEG格式
+      } else if (filename.endsWith(".png")) {
+        imageList[totalImages].format = 0x20; // PNG格式
+      } else if (filename.endsWith(".gif")) {
+        imageList[totalImages].format = 0x30; // GIF格式
+      } else if (filename.endsWith(".ibin")) {
+        imageList[totalImages].format = 0x00; // 原始格式
+      } else {
+        // 跳过不认识的格式
+        continue;
+      }
+      
       totalImages++;
     }
     file = root.openNextFile();
@@ -73,11 +91,14 @@ void loadImageOrder() {
     return;
   }
   
-  // 检查标记(0xA5)和版本(0x01)
-  if (header[0] != 0xA5 || header[1] != 0x01) {
+  // 检查标记(0xA5)
+  if (header[0] != 0xA5) {
     file.close();
     return;
   }
+  
+  // 版本兼容性处理
+  bool isNewVersion = (header[1] == 0x02);
   
   // 读取图片数量
   uint8_t count;
@@ -95,7 +116,7 @@ void loadImageOrder() {
     if (file.read(&nameLen, 1) != 1) break;
     
     // 读取文件名
-    char nameBuffer[32];
+    char nameBuffer[64]; // 增大缓冲区以适应更长的文件名
     if (file.read((uint8_t*)nameBuffer, nameLen) != nameLen) break;
     nameBuffer[nameLen] = 0; // 添加字符串结束符
     
@@ -106,6 +127,35 @@ void loadImageOrder() {
     // 保存到列表
     imageList[i].filename = String(nameBuffer);
     imageList[i].active = (active == 1);
+    
+    // 如果是新版本，读取格式和文件大小
+    if (isNewVersion) {
+      // 读取格式
+      if (file.read(&imageList[i].format, 1) != 1) break;
+      
+      // 读取文件大小
+      if (file.read((uint8_t*)&imageList[i].fileSize, 4) != 4) break;
+    } else {
+      // 旧版本，通过扩展名判断格式
+      if (imageList[i].filename.endsWith(".jpg") || imageList[i].filename.endsWith(".jpeg")) {
+        imageList[i].format = 0x10;
+      } else if (imageList[i].filename.endsWith(".png")) {
+        imageList[i].format = 0x20;
+      } else if (imageList[i].filename.endsWith(".gif")) {
+        imageList[i].format = 0x30;
+      } else {
+        imageList[i].format = 0x00;
+      }
+      
+      // 尝试获取文件大小
+      File imgFile = LittleFS.open(imageList[i].filename, "r");
+      if (imgFile) {
+        imageList[i].fileSize = imgFile.size();
+        imgFile.close();
+      } else {
+        imageList[i].fileSize = 0;
+      }
+    }
   }
   
   file.close();
@@ -117,7 +167,7 @@ void saveImageOrder() {
   if (!file) return;
 
   // 写入文件头和版本号
-  uint8_t header[2] = {0xA5, 0x01}; // 标记和版本
+  uint8_t header[2] = {0xA5, 0x02}; // 修改版本号为0x02
   file.write(header, 2);
   
   // 写入图片数量
@@ -136,6 +186,12 @@ void saveImageOrder() {
     // 写入激活状态
     uint8_t active = imageList[i].active ? 1 : 0;
     file.write(&active, 1);
+    
+    // 写入格式
+    file.write(&imageList[i].format, 1);
+    
+    // 写入文件大小
+    file.write((uint8_t*)&imageList[i].fileSize, 4);
   }
   
   file.close();
@@ -143,9 +199,23 @@ void saveImageOrder() {
 
 // 开始图片传输
 void startImageTransfer(uint8_t fileIndex) {
-  currentImageName = "/img_" + String(fileIndex) + ".ibin";
+  // 提取实际索引和格式
+  uint8_t actualIndex = fileIndex & 0x0F;  // 低4位为实际索引
+  uint8_t format = fileIndex & 0xF0;       // 高4位为格式
   
-  Serial.println("开始接收图片: " + currentImageName);
+  // 确定扩展名
+  String extension;
+  switch (format) {
+    case 0x00: extension = ".ibin"; break; // 原始二进制
+    case 0x10: extension = ".jpg"; break;  // JPEG
+    case 0x20: extension = ".png"; break;  // PNG
+    case 0x30: extension = ".gif"; break;  // GIF
+    default: extension = ".ibin"; break;   // 默认
+  }
+  
+  currentImageName = "/img_" + String(actualIndex) + extension;
+  
+  Serial.println("开始接收图片: " + currentImageName + " 格式代码: 0x" + String(format, HEX));
   
   // 如果有正在传输的文件，先关闭
   if (currentImageFile) {
@@ -207,7 +277,7 @@ void finishImageTransfer() {
   }
   
   // 检查最小有效大小
-  if (verifiedSize < 1000) {
+  if (verifiedSize < 100) {  // 减小最小大小限制，因为某些简单图片文件较小
     Serial.println("文件太小，可能不完整，删除中...");
     LittleFS.remove(currentImageName);
     sendResponse(CMD_END_TRANSFER, RESP_TRANSFER_ERROR);
@@ -230,9 +300,34 @@ void finishImageTransfer() {
     currentImage = newIndex;
     displayImage(currentImage);
     
+    // 提取格式和实际索引
+    uint8_t format = 0;
+    uint8_t actualIndex = 0;
+    
+    if (currentImageName.endsWith(".jpg") || currentImageName.endsWith(".jpeg")) {
+      format = 0x10;
+    } else if (currentImageName.endsWith(".png")) {
+      format = 0x20;
+    } else if (currentImageName.endsWith(".gif")) {
+      format = 0x30;
+    }
+    
+    // 提取实际索引号
+    String nameClean = currentImageName;
+    nameClean.replace("/img_", "");
+    nameClean.replace(".jpg", "");
+    nameClean.replace(".jpeg", "");
+    nameClean.replace(".png", "");
+    nameClean.replace(".gif", "");
+    nameClean.replace(".ibin", "");
+    actualIndex = nameClean.toInt() & 0x0F;  // 确保只保留低4位
+    
+    // 组合索引
+    uint8_t combinedIndex = format | actualIndex;
+    
     // 发送成功响应，包含图片索引和大小
     uint8_t payload[5];
-    payload[0] = newIndex;
+    payload[0] = combinedIndex;
     *((uint32_t*)&payload[1]) = fileSize;
     sendResponse(CMD_END_TRANSFER, RESP_SUCCESS, payload, 5);
   } else {
@@ -285,29 +380,43 @@ void reorderImages(uint8_t* order, size_t length) {
 
 // 发送图片列表
 void sendImageList() {
-  // 准备响应数据，最多发送10张图片信息
-  uint8_t response[3 + MAX_IMAGES * 3]; // 每张图片3字节(ID+文件索引+激活状态)
+  // 准备响应数据
+  // 格式: [图片总数(1B)] + [位置索引(1B) + 文件索引(1B) + 文件大小(4B)] * N
+  uint8_t responseSize = 1 + totalImages * 6;
+  uint8_t* response = new uint8_t[responseSize];
   
   response[0] = totalImages; // 图片总数
   
   // 填充图片信息
-  for (int i = 0; i < totalImages && i < MAX_IMAGES; i++) {
+  for (int i = 0; i < totalImages; i++) {
     uint8_t fileIndex = 0;
     
     // 提取文件索引
     String nameClean = imageList[i].filename;
     nameClean.replace("/img_", "");
+    nameClean.replace(".jpg", "");
+    nameClean.replace(".jpeg", "");
+    nameClean.replace(".png", "");
+    nameClean.replace(".gif", "");
     nameClean.replace(".ibin", "");
-    fileIndex = nameClean.toInt();
+    fileIndex = nameClean.toInt() & 0x0F;  // 低4位为实际索引
+    
+    // 组合索引 (格式 + 实际索引)
+    uint8_t combinedIndex = imageList[i].format | fileIndex;
     
     // 保存图片信息
-    response[1 + i*3] = i;                     // 顺序索引
-    response[1 + i*3 + 1] = fileIndex;         // 文件索引
-    response[1 + i*3 + 2] = imageList[i].active ? 1 : 0; // 激活状态
+    response[1 + i*6] = i;                     // 位置索引
+    response[1 + i*6 + 1] = combinedIndex;     // 组合索引 (格式+实际索引)
+    
+    // 文件大小 (4字节)
+    *((uint32_t*)&response[1 + i*6 + 2]) = imageList[i].fileSize;
   }
   
   // 发送响应
-  sendResponse(CMD_GET_IMAGE_LIST, RESP_SUCCESS, response, 1 + totalImages * 3);
+  sendResponse(CMD_GET_IMAGE_LIST, RESP_SUCCESS, response, responseSize);
+  
+  // 释放内存
+  delete[] response;
 }
 
 // 发送设备状态

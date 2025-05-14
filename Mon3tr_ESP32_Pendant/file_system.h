@@ -11,6 +11,8 @@
 struct ImageInfo {
   String filename;
   bool active;
+  uint8_t format;    // 新增：图片格式
+  uint32_t fileSize; // 新增：文件大小
 };
 
 // 全局变量声明

@@ -4,6 +4,11 @@
 #include "file_system.h"
 #include "commands.h"
 
+//gif
+bool isPlayingGif = false;
+String currentGifPath = "";
+unsigned long lastGifFrameTime = 0;
+
 // 最后检查时间
 unsigned long lastCheck = 0;
 unsigned long lastIdleTask = 0;
@@ -96,8 +101,14 @@ void loop() {
   // 3. 处理串口命令
   handleSerialCommand();
   
-  // 4. 定期任务处理
-  handlePeriodicTasks();
+  // 4. 处理GIF动画 (新增)
+  if (isPlayingGif && now - lastGifFrameTime >= 100) { // 约10帧/秒
+    lastGifFrameTime = now;
+    playGifFrame(currentGifPath);
+  }
+  
+  // 5. 定期任务处理
+  //handlePeriodicTasks();
   
   // 短暂延迟，让ESP32有时间处理其他系统任务
   delay(1);
