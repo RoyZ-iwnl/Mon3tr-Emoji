@@ -45,17 +45,31 @@
             app:layout_constraintStart_toEndOf="@id/image_index"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- 图片大小 -->
         <TextView
             android:id="@+id/image_size"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:layout_marginTop="4dp"
             android:text="123.4 KB"
             android:textSize="14sp"
-            app:layout_constraintEnd_toEndOf="@id/image_name"
             app:layout_constraintStart_toEndOf="@id/image_index"
+            app:layout_constraintTop_toBottomOf="@id/image_name" />
+
+        <TextView
+            android:id="@+id/image_format"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/format_badge_background"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:text="PNG"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toEndOf="@id/image_size"
             app:layout_constraintTop_toBottomOf="@id/image_name" />
 
         <!-- 选中指示器 -->

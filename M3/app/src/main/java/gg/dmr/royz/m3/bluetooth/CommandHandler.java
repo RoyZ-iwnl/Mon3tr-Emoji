@@ -102,79 +102,52 @@ public class CommandHandler {
             }
             Log.d(TAG, sb.toString());
 
-            // 分析收到的响应格式，按实际协议解析
-            // 观察日志: 06 00 0D 04 00 01 01 01 02 01 02 09 01 03 00 01
-            // 这可能是特殊格式，直接解析
-
             List<DeviceImage> imageList = new ArrayList<>();
 
-            // 特殊处理：可能设备返回的是多个图片条目的连续列表
-            // 假设格式为: [图片索引(1字节), 图片大小低字节(1字节), 图片大小高字节(1字节), 名称长度(1字节), 名称(变长)]
-            int index = 0;
+            // 第一个字节表示图片数量
+            int imageCount = payload[0] & 0xFF;
+            Log.d(TAG, "图片数量: " + imageCount);
 
-            // 确保循环安全，防止索引越界
-            while (index < payload.length) {
-                // 确保至少有3字节剩余数据
-                if (index + 3 >= payload.length) {
-                    Log.w(TAG, "剩余数据不足，结束解析: 剩余字节=" + (payload.length - index));
-                    break;
+            // 每张图片信息: 位置索引(1) + 文件索引(1) + 大小(4) = 6字节
+            int offset = 1;
+            for (int i = 0; i < imageCount && offset + 6 <= payload.length; i++) {
+                // 解析位置索引
+                int positionIndex = payload[offset++] & 0xFF;
+
+                // 解析文件索引
+                byte fileIndex = payload[offset++];
+
+                // 解析图片大小 (4字节)
+                int fileSize = ((payload[offset] & 0xFF)) |
+                        ((payload[offset + 1] & 0xFF) << 8) |
+                        ((payload[offset + 2] & 0xFF) << 16) |
+                        ((payload[offset + 3] & 0xFF) << 24);
+                offset += 4;
+
+                // 提取图片格式（从fileIndex的高4位）
+                byte format = (byte)(fileIndex & 0xF0);
+
+                // 实际文件索引（低4位）
+                byte actualIndex = (byte)(fileIndex & 0x0F);
+
+                // 构建文件名
+                String extension;
+                switch (format) {
+                    case 0x10: extension = ".jpg"; break;
+                    case 0x20: extension = ".png"; break;
+                    case 0x30: extension = ".gif"; break;
+                    default: extension = ".ibin"; break;
                 }
 
-                // 获取图片索引
-                byte fileIndex = payload[index++];
+                String filename = "img_" + actualIndex + extension;
 
-                // 读取图片大小 - 尝试不同的字节序
-                int fileSize;
-                if (index + 3 < payload.length) {
-                    // 尝试4字节大小
-                    fileSize = ((payload[index] & 0xFF)) |
-                            ((payload[index + 1] & 0xFF) << 8) |
-                            ((payload[index + 2] & 0xFF) << 16) |
-                            ((payload[index + 3] & 0xFF) << 24);
-                    index += 4;
-                } else if (index + 1 < payload.length) {
-                    // 尝试2字节大小
-                    fileSize = ((payload[index] & 0xFF)) |
-                            ((payload[index + 1] & 0xFF) << 8);
-                    index += 2;
-                } else {
-                    // 尝试1字节大小
-                    fileSize = (payload[index] & 0xFF);
-                    index++;
-                }
-
-                // 读取名称长度 (如果还有数据)
-                byte nameLength = 0;
-                if (index < payload.length) {
-                    nameLength = payload[index++];
-                }
-
-                // 安全检查: 确保名称长度字段有效且剩余数据足够
-                if (nameLength < 0 || (nameLength > 0 && index + nameLength > payload.length)) {
-                    Log.w(TAG, "无效的名称长度或数据不足: nameLength=" + nameLength +
-                            ", 剩余字节=" + (payload.length - index));
-                    // 尝试继续解析，而不是中断
-                    nameLength = 0;
-                }
-
-                // 读取名称
-                String fileName = "";
-                if (nameLength > 0) {
-                    try {
-                        fileName = new String(Arrays.copyOfRange(payload, index, index + nameLength),
-                                StandardCharsets.UTF_8);
-                        index += nameLength;
-                    } catch (Exception e) {
-                        Log.w(TAG, "读取名称失败: " + e.getMessage());
-                    }
-                }
-
-                // 添加到图片列表
-                DeviceImage image = new DeviceImage(fileIndex, fileName, fileSize);
+                DeviceImage image = new DeviceImage(fileIndex, filename, fileSize, format);
                 imageList.add(image);
 
-                Log.d(TAG, "解析图片: 索引=" + fileIndex + ", 大小=" + fileSize +
-                        "字节, 名称=" + fileName);
+                Log.d(TAG, "解析图片: 位置=" + positionIndex +
+                        ", 索引=0x" + String.format("%02X", fileIndex) +
+                        ", 大小=" + fileSize + "字节, 格式=" +
+                        image.getFormatDescription());
             }
 
             callback.onImageListReceived(imageList);
@@ -193,19 +166,24 @@ public class CommandHandler {
                 return;
             }
 
-            // 设备状态格式：[电池电量(1字节), 存储使用量(4字节), 当前显示索引(1字节)]
-            byte batteryLevel = payload[0]; // 电池电量百分比
+            // 设备状态格式：[开机时长(4字节), 存储使用量(4字节), 当前显示索引(1字节)]
+
+            // 读取开机时长(4字节，小端序)
+            int uptime = ((payload[0] & 0xFF)) |
+                    ((payload[1] & 0xFF) << 8) |
+                    ((payload[2] & 0xFF) << 16) |
+                    ((payload[3] & 0xFF) << 24);
 
             // 读取存储使用量(4字节，小端序)
-            int storageUsed = ((payload[1] & 0xFF)) |
-                    ((payload[2] & 0xFF) << 8) |
-                    ((payload[3] & 0xFF) << 16) |
-                    ((payload[4] & 0xFF) << 24);
+            int storageUsed = ((payload[4] & 0xFF)) |
+                    ((payload[5] & 0xFF) << 8) |
+                    ((payload[6] & 0xFF) << 16) |
+                    ((payload[7] & 0xFF) << 24);
 
             // 获取当前显示的图片索引
-            byte currentIndex = (payload.length > 5) ? payload[5] : -1;
+            byte currentIndex = (payload.length > 8) ? payload[8] : -1;
 
-            DeviceStatus status = new DeviceStatus(batteryLevel, storageUsed, currentIndex);
+            DeviceStatus status = new DeviceStatus(uptime, storageUsed, currentIndex);
             callback.onStatusReceived(status);
 
         } catch (Exception e) {

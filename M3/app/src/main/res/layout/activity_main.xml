@@ -44,17 +44,18 @@
                 android:layout_weight="1"
                 android:orientation="vertical">
 
+                <!-- 电池状态改为开机时间 -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="电池"
+                    android:text="运行时间"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/battery_level"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="--%" />
+                    android:text="--" />
             </LinearLayout>
 
             <!-- 存储状态 -->

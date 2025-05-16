@@ -1,143 +1,158 @@
 package gg.dmr.royz.m3.utils;
 
+import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
-import android.graphics.Paint;
+import android.net.Uri;
+import android.util.Log;
 
-import java.nio.ByteBuffer;
-
-import gg.dmr.royz.m3.bluetooth.Constants;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * 图片转换工具类
- * 将普通图片转换为设备所需的RGB565格式
+ * 负责将Bitmap调整为设备支持的格式和尺寸
  */
 public class ImageConverter {
     private static final String TAG = "ImageConverter";
 
+    // 图片格式常量，与ESP32的格式定义对应
+    public static final byte FORMAT_JPEG = 0x10;   // JPEG格式
+    public static final byte FORMAT_PNG = 0x20;    // PNG格式
+    public static final byte FORMAT_GIF = 0x30;    // GIF格式
+
+    // 目标尺寸
+    public static final int TARGET_WIDTH = 240;
+    public static final int TARGET_HEIGHT = 240;
+
     /**
-     * 将位图转换为RGB565格式的字节数组
-     * 实现类似Python示例中的convert_image_to_rgb565函数
+     * 将Bitmap转换为JPEG格式
+     * @param bitmap 源Bitmap
+     * @param quality JPEG压缩质量(0-100)
+     * @return JPEG格式的字节数组
      */
-    public static byte[] convertBitmapToRgb565(Bitmap originalBitmap) {
-        // 调整大小并保持宽高比
-        Bitmap resizedBitmap = resizeToFit(originalBitmap, Constants.IMAGE_WIDTH, Constants.IMAGE_HEIGHT);
-
-        // 创建目标大小的空白画布(240x240)
-        Bitmap targetBitmap = Bitmap.createBitmap(Constants.IMAGE_WIDTH, Constants.IMAGE_HEIGHT, Bitmap.Config.RGB_565);
-        Canvas canvas = new Canvas(targetBitmap);
-
-        // 背景填充黑色
-        canvas.drawColor(Color.BLACK);
-
-        // 计算居中位置
-        int x = (Constants.IMAGE_WIDTH - resizedBitmap.getWidth()) / 2;
-        int y = (Constants.IMAGE_HEIGHT - resizedBitmap.getHeight()) / 2;
-
-        // 将调整后的位图绘制到画布上
-        Paint paint = new Paint();
-        paint.setFilterBitmap(true);
-        canvas.drawBitmap(resizedBitmap, x, y, paint);
-
-        // 释放中间位图
-        if (resizedBitmap != originalBitmap) {
-            resizedBitmap.recycle();
-        }
-
-        // 将位图转换为RGB565字节数组
-        ByteBuffer buffer = ByteBuffer.allocate(Constants.IMAGE_WIDTH * Constants.IMAGE_HEIGHT * 2);
-
-        // 遍历像素，按RGB565格式处理
-        for (int row = 0; row < Constants.IMAGE_HEIGHT; row++) {
-            for (int col = 0; col < Constants.IMAGE_WIDTH; col++) {
-                int pixel = targetBitmap.getPixel(col, row);
-
-                // 提取RGB值
-                int r = Color.red(pixel);
-                int g = Color.green(pixel);
-                int b = Color.blue(pixel);
-
-                // 转换为RGB565格式(16位)
-                // R: 5位 (高位), G: 6位 (中间), B: 5位 (低位)
-                int rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
-
-                // 写入缓冲区(小端序：低字节在前)
-                buffer.put((byte) (rgb565 & 0xFF));
-                buffer.put((byte) ((rgb565 >> 8) & 0xFF));
-            }
-        }
-
-        // 释放目标位图
-        targetBitmap.recycle();
-
-        // 返回字节数组
-        return buffer.array();
+    public static byte[] convertBitmapToJpeg(Bitmap bitmap, int quality) {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, stream);
+        return stream.toByteArray();
     }
 
     /**
-     * 调整位图大小，保持宽高比
+     * 将Bitmap转换为PNG格式
+     * @param bitmap 源Bitmap
+     * @return PNG格式的字节数组
      */
-    private static Bitmap resizeToFit(Bitmap bitmap, int maxWidth, int maxHeight) {
+    public static byte[] convertBitmapToPng(Bitmap bitmap) {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+        return stream.toByteArray();
+    }
+
+    /**
+     * 从Uri加载图片并调整大小为240x240
+     * @param context 上下文
+     * @param uri 图片Uri
+     * @return 调整大小后的Bitmap
+     */
+    public static Bitmap loadImageFromUri(Context context, Uri uri) {
+        try {
+            InputStream input = context.getContentResolver().openInputStream(uri);
+
+            // 先解码图片尺寸
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeStream(input, null, options);
+            input.close();
+
+            // 重新打开流
+            input = context.getContentResolver().openInputStream(uri);
+
+            // 解码完整图片
+            options = new BitmapFactory.Options();
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            Bitmap originalBitmap = BitmapFactory.decodeStream(input, null, options);
+            input.close();
+
+            if (originalBitmap == null) {
+                LogUtil.logError("无法解码图片");
+                return null;
+            }
+
+            // 调整大小并居中裁剪
+            return resizeBitmap(originalBitmap, TARGET_WIDTH, TARGET_HEIGHT);
+
+        } catch (Exception e) {
+            LogUtil.logError("加载图片失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 调整图片尺寸并居中裁剪，保持目标宽高比
+     * @param bitmap 原始图片
+     * @param targetWidth 目标宽度
+     * @param targetHeight 目标高度
+     * @return 调整后的图片
+     */
+    public static Bitmap resizeBitmap(Bitmap bitmap, int targetWidth, int targetHeight) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
 
-        // 已经是目标大小
-        if (width == maxWidth && height == maxHeight) {
-            return bitmap;
-        }
+        // 创建画布居中绘制
+        Bitmap result = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(result);
+        canvas.drawColor(Color.BLACK); // 填充黑色背景
 
-        // 计算缩放比例
-        float scaleWidth = (float) maxWidth / width;
-        float scaleHeight = (float) maxHeight / height;
+        // 计算缩放比例，保持原始宽高比
+        float scaleWidth = (float) targetWidth / width;
+        float scaleHeight = (float) targetHeight / height;
         float scale = Math.min(scaleWidth, scaleHeight);
 
-        // 创建变换矩阵
+        // 计算居中位置
+        int scaledWidth = (int) (width * scale);
+        int scaledHeight = (int) (height * scale);
+        int offsetX = (targetWidth - scaledWidth) / 2;
+        int offsetY = (targetHeight - scaledHeight) / 2;
+
+        // 创建缩放矩阵
         Matrix matrix = new Matrix();
         matrix.postScale(scale, scale);
 
-        // 创建调整大小后的位图
-        return Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);
+        // 缩放原图
+        Bitmap scaledBitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, true);
+
+        // 将缩放后的图片绘制到目标画布上
+        canvas.drawBitmap(scaledBitmap, offsetX, offsetY, null);
+
+        // 回收不需要的Bitmap
+        if (scaledBitmap != bitmap) {
+            scaledBitmap.recycle();
+        }
+        bitmap.recycle();
+
+        return result;
     }
 
     /**
-     * 优化版本：直接从RGB_565格式位图获取字节数组
-     * 这个方法比上面的方法更高效，但可能在某些设备上实现不同
+     * 根据文件扩展名获取格式类型
+     * @param filePath 文件路径
+     * @return 格式类型常量
      */
-    public static byte[] getOptimizedRgb565Bytes(Bitmap originalBitmap) {
-        // 调整大小并保持宽高比
-        Bitmap resizedBitmap = resizeToFit(originalBitmap, Constants.IMAGE_WIDTH, Constants.IMAGE_HEIGHT);
-
-        // 创建目标大小的空白画布(RGB_565格式)
-        Bitmap targetBitmap = Bitmap.createBitmap(Constants.IMAGE_WIDTH, Constants.IMAGE_HEIGHT, Bitmap.Config.RGB_565);
-        Canvas canvas = new Canvas(targetBitmap);
-
-        // 背景填充黑色
-        canvas.drawColor(Color.BLACK);
-
-        // 计算居中位置
-        int x = (Constants.IMAGE_WIDTH - resizedBitmap.getWidth()) / 2;
-        int y = (Constants.IMAGE_HEIGHT - resizedBitmap.getHeight()) / 2;
-
-        // 将调整后的位图绘制到画布上
-        Paint paint = new Paint();
-        paint.setFilterBitmap(true);
-        canvas.drawBitmap(resizedBitmap, x, y, paint);
-
-        // 释放中间位图
-        if (resizedBitmap != originalBitmap) {
-            resizedBitmap.recycle();
+    public static byte getFormatType(String filePath) {
+        String lowerPath = filePath.toLowerCase();
+        if (lowerPath.endsWith(".jpg") || lowerPath.endsWith(".jpeg")) {
+            return FORMAT_JPEG;
+        } else if (lowerPath.endsWith(".png")) {
+            return FORMAT_PNG;
+        } else if (lowerPath.endsWith(".gif")) {
+            return FORMAT_GIF;
         }
-
-        // 从RGB_565位图中提取原始字节数组
-        ByteBuffer buffer = ByteBuffer.allocate(Constants.IMAGE_WIDTH * Constants.IMAGE_HEIGHT * 2);
-        targetBitmap.copyPixelsToBuffer(buffer);
-        byte[] result = buffer.array();
-
-        // 释放目标位图
-        targetBitmap.recycle();
-
-        return result;
+        return FORMAT_JPEG; // 默认使用JPEG
     }
 }

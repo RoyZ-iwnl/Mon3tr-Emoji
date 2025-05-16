@@ -1,5 +1,6 @@
 package gg.dmr.royz.m3;
 
+
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -40,6 +41,7 @@ import gg.dmr.royz.m3.adapter.ImageListAdapter;
 import gg.dmr.royz.m3.bluetooth.BleManager;
 import gg.dmr.royz.m3.model.DeviceImage;
 import gg.dmr.royz.m3.model.DeviceStatus;
+import gg.dmr.royz.m3.utils.ImageConverter;
 import gg.dmr.royz.m3.utils.LogUtil;
 import gg.dmr.royz.m3.view.LogDisplayView;
 
@@ -155,8 +157,10 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         // 观察设备状态
         viewModel.getDeviceStatus().observe(this, status -> {
             if (status != null) {
-                batteryLevelView.setText(status.getBatteryLevel() + "%");
-                storageUsageView.setText(status.getFormattedStorage());
+                // 将电池电量显示改为开机时长
+                batteryLevelView.setText(status.getFormattedUptime());
+                String currentStorage = status.getFormattedStorage(); // 可能是 "--" 或 "500KB"
+                storageUsageView.setText(getString(R.string.storage_usage_format, currentStorage));
                 imageAdapter.setCurrentDisplayIndex(status.getCurrentImage());
             }
         });
@@ -248,19 +252,81 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
 
     private void handleImageSelection(Uri imageUri) {
         try {
-            Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), imageUri);
+            // 使用修改后的加载方法，直接调整为240x240
+            Bitmap bitmap = ImageConverter.loadImageFromUri(this, imageUri);
 
-            // 询问用户要上传到哪个索引位置
-            showIndexSelectionDialog(bitmap);
+            if (bitmap == null) {
+                LogUtil.logError("加载图片失败");
+                Toast.makeText(this, "加载图片失败", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-        } catch (IOException e) {
-            LogUtil.logError("加载图片失败: " + e.getMessage());
-            Toast.makeText(this, "加载图片失败", Toast.LENGTH_SHORT).show();
+            // 询问用户要上传到哪个索引位置和格式
+            showIndexAndFormatSelectionDialog(bitmap);
+
+        } catch (Exception e) {
+            LogUtil.logError("处理图片失败: " + e.getMessage());
+            Toast.makeText(this, "处理图片失败", Toast.LENGTH_SHORT).show();
         }
     }
 
+    private void showIndexAndFormatSelectionDialog(final Bitmap bitmap) {
+        // 首先选择索引位置
+        List<DeviceImage> images = viewModel.getImageList().getValue();
+        final List<String> indexOptions = new ArrayList<>();
+
+        if (images != null) {
+            for (DeviceImage image : images) {
+                indexOptions.add("替换图片 " + image.getIndex() +
+                        (image.getName().isEmpty() ? "" : " (" + image.getName() + ")"));
+            }
+        }
+
+        // 添加新图片选项
+        indexOptions.add("添加为新图片");
+
+        new AlertDialog.Builder(this)
+                .setTitle("选择图片位置")
+                .setItems(indexOptions.toArray(new String[0]), (dialog, which) -> {
+                    byte targetIndex;
+
+                    if (which < indexOptions.size() - 1) {
+                        // 替换现有图片
+                        targetIndex = images != null ? images.get(which).getIndex() : 0;
+                    } else {
+                        // 添加为新图片
+                        targetIndex = (byte) (images != null ? images.size() : 0);
+                    }
+
+                    // 然后选择格式
+                    showFormatSelectionDialog(bitmap, targetIndex);
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    private void showFormatSelectionDialog(final Bitmap bitmap, final byte targetIndex) {
+        final String[] formats = {"JPEG (推荐)", "PNG", "GIF"};
+
+        new AlertDialog.Builder(this)
+                .setTitle("选择图片格式")
+                .setItems(formats, (dialog, which) -> {
+                    String format;
+                    switch (which) {
+                        case 1: format = "PNG"; break;
+                        case 2: format = "GIF"; break;
+                        default: format = "JPG"; break;
+                    }
+
+                    // 上传图片
+                    viewModel.uploadImage(bitmap, targetIndex, format);
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
     private void showIndexSelectionDialog(final Bitmap bitmap) {
-        // 构建索引列表
+        // 构建索引列表（原逻辑保留）
         List<DeviceImage> images = viewModel.getImageList().getValue();
         final List<String> options = new ArrayList<>();
 
@@ -270,26 +336,22 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                         (image.getName().isEmpty() ? "" : " (" + image.getName() + ")"));
             }
         }
-
-        // 添加新图片选项
         options.add("添加为新图片");
 
-        // 显示对话框
+        // 显示位置选择对话框
         new AlertDialog.Builder(this)
                 .setTitle("选择图片位置")
                 .setItems(options.toArray(new String[0]), (dialog, which) -> {
+                    // 确定目标索引
                     byte targetIndex;
-
                     if (which < options.size() - 1) {
-                        // 替换现有图片
                         targetIndex = images != null ? images.get(which).getIndex() : 0;
                     } else {
-                        // 添加为新图片
                         targetIndex = (byte) (images != null ? images.size() : 0);
                     }
 
-                    // 上传图片
-                    viewModel.uploadImage(bitmap, targetIndex);
+                    // 选择位置后弹出格式选择对话框
+                    showFormatSelectionDialog(bitmap, targetIndex);
                 })
                 .setNegativeButton("取消", null)
                 .show();

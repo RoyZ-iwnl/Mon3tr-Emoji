@@ -1,10 +1,12 @@
 package gg.dmr.royz.m3.adapter;
 
 import android.annotation.SuppressLint;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.Drawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -46,6 +48,7 @@ public class ImageListAdapter extends RecyclerView.Adapter<ImageListAdapter.View
         public TextView nameTextView;
         public TextView sizeTextView;
         public TextView indexTextView;
+        public TextView formatTextView; // 新增：显示图片格式
         public View selectedIndicator;
         public View displayingIndicator;
         public View container;
@@ -55,6 +58,7 @@ public class ImageListAdapter extends RecyclerView.Adapter<ImageListAdapter.View
             nameTextView = itemView.findViewById(R.id.image_name);
             sizeTextView = itemView.findViewById(R.id.image_size);
             indexTextView = itemView.findViewById(R.id.image_index);
+            formatTextView = itemView.findViewById(R.id.image_format);
             selectedIndicator = itemView.findViewById(R.id.selected_indicator);
             displayingIndicator = itemView.findViewById(R.id.displaying_indicator);
             container = itemView.findViewById(R.id.item_container);
@@ -96,15 +100,56 @@ public class ImageListAdapter extends RecyclerView.Adapter<ImageListAdapter.View
         // 设置索引
         holder.indexTextView.setText(String.valueOf(image.getIndex()));
 
-        // 设置选中状态
-        holder.selectedIndicator.setVisibility(image.isSelected() ? View.VISIBLE : View.INVISIBLE);
+        // 设置格式信息
+        if (holder.formatTextView != null) {
+            String format = getFormatName(image.getFormat());
+            holder.formatTextView.setText(format);
 
-        // 设置当前显示状态
-        holder.displayingIndicator.setVisibility(
-                image.getIndex() == currentDisplayIndex ? View.VISIBLE : View.INVISIBLE);
+            // 设置不同格式的背景颜色
+            int bgColor;
+            switch (image.getFormat()) {
+                case 0x10: // JPG
+                    bgColor = Color.parseColor("#FF9800"); // 橙色
+                    break;
+                case 0x20: // PNG
+                    bgColor = Color.parseColor("#4CAF50"); // 绿色
+                    break;
+                case 0x30: // GIF
+                    bgColor = Color.parseColor("#9C27B0"); // 紫色
+                    break;
+                default: // BIN
+                    bgColor = Color.parseColor("#607D8B"); // 灰蓝色
+                    break;
+            }
 
-        // 保存位置
-        holder.itemView.setTag(position);
+            // 获取背景并设置颜色
+            Drawable background = holder.formatTextView.getBackground();
+            if (background != null) {
+                background.setColorFilter(bgColor, PorterDuff.Mode.SRC_ATOP);
+            }
+
+
+            // 设置选中状态
+            holder.selectedIndicator.setVisibility(image.isSelected() ? View.VISIBLE : View.INVISIBLE);
+
+            // 设置当前显示状态
+            holder.displayingIndicator.setVisibility(
+                    image.getIndex() == currentDisplayIndex ? View.VISIBLE : View.INVISIBLE);
+
+            // 保存位置
+            holder.itemView.setTag(position);
+        }
+    }
+
+    // 获取格式名称
+    private String getFormatName(byte format) {
+        switch (format) {
+            case 0x10: return "JPG";
+            case 0x20: return "PNG";
+            case 0x30: return "GIF";
+            case 0x00: return "BIN";
+            default: return "未知";
+        }
     }
 
     @Override

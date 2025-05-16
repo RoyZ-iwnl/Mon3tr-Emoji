@@ -149,25 +149,50 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
         bleManager.sendCommand(CommandHandler.cmdReorderImages(order));
     }
 
-    // 上传图片
-    public void uploadImage(Bitmap bitmap, byte targetIndex) {
+    /**
+     * 上传图片
+     * @param bitmap 图片位图
+     * @param targetIndex 目标索引
+     * @param format 图片格式 ("JPG", "PNG", "GIF")
+     */
+    public void uploadImage(Bitmap bitmap, byte targetIndex, String format) {
         if (bleManager.getState() != BleManager.State.CONNECTED) {
             LogUtil.logError("设备未连接，无法上传图片");
             return;
         }
 
-        LogUtil.log("准备上传图片到索引: " + targetIndex);
+        LogUtil.log("准备上传" + format + "格式图片到索引: " + targetIndex);
         isTransferring.setValue(true);
         transferProgress.setValue(0);
 
-        // 转换图片为RGB565格式
-        // 注意: 使用与Python代码中相同的RGB565转换逻辑
-        byte[] imageData = ImageConverter.convertBitmapToRgb565(bitmap);
-        LogUtil.log("图片转换完成，数据大小: " + imageData.length + " 字节");
+        byte[] imageData;
+        // 根据格式确定格式标识
+        byte formatId;
+
+        if (format.equalsIgnoreCase("PNG")) {
+            // PNG格式
+            imageData = ImageConverter.convertBitmapToPng(bitmap);
+            formatId = 0x20;
+        } else if (format.equalsIgnoreCase("GIF")) {
+            // GIF格式（注意：Android不支持直接转换为GIF，这里仅作为接口保留）
+            imageData = ImageConverter.convertBitmapToJpeg(bitmap, 90);
+            formatId = 0x30;
+        } else {
+            // 默认使用JPEG
+            imageData = ImageConverter.convertBitmapToJpeg(bitmap, 85);
+            formatId = 0x10;
+        }
+
+        LogUtil.log("图片转换完成，格式: " + format + "，数据大小: " + imageData.length + " 字节");
+
+        // 确保目标索引只使用低4位
+        byte actualIndex = (byte)(targetIndex & 0x0F);
+        // 组合格式和索引
+        byte combinedIndex = (byte)(formatId | actualIndex);
 
         // 开始传输过程
-        // 1. 发送开始传输命令
-        bleManager.startImageTransfer(targetIndex);
+        // 1. 发送开始传输命令（使用组合索引）
+        bleManager.startImageTransfer(actualIndex, formatId);
 
         // 2. 分包发送图片数据
         bleManager.sendImageData(imageData, new BleManager.TransferCallback() {
@@ -197,6 +222,22 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
             }
         });
     }
+
+    // 添加一个从Uri上传图片的方法
+    /*public void uploadImageFromUri(Uri imageUri, byte targetIndex, String format) {
+        try {
+            // 加载Bitmap
+            Bitmap bitmap = ImageConverter.loadImageFromUri(getApplication(), imageUri,
+                    Constants.IMAGE_WIDTH, Constants.IMAGE_HEIGHT);
+            if (bitmap != null) {
+                uploadImage(bitmap, targetIndex, format);
+            } else {
+                LogUtil.logError("无法从Uri加载图片");
+            }
+        } catch (Exception e) {
+            LogUtil.logError("处理图片时出错: " + e.getMessage());
+        }
+    }*/
 
     // 处理命令响应
     public void handleCommandResponse(byte[] response) {

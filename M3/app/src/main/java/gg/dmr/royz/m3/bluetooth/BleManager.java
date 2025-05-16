@@ -712,9 +712,28 @@ public class BleManager {
         sendCommand(CommandHandler.cmdGetStatus());
     }
 
-    // 开始图片传输
+    /**
+     * 开始图片传输，支持格式标识
+     *
+     * @param fileIndex 文件索引
+     * @param format 图片格式 (0x00=原始格式, 0x10=JPG, 0x20=PNG, 0x30=GIF)
+     * @return 是否成功发送命令
+     */
+    public boolean startImageTransfer(byte fileIndex, byte format) {
+        // 组合索引和格式
+        byte combinedIndex = (byte)((format & 0xF0) | (fileIndex & 0x0F));
+        return sendCommand(CommandHandler.cmdStartTransfer(combinedIndex));
+    }
+
+    /**
+     * 开始图片传输 (兼容老方法)
+     *
+     * @param fileIndex 文件索引
+     * @return 是否成功发送命令
+     */
     public boolean startImageTransfer(byte fileIndex) {
-        return sendCommand(CommandHandler.cmdStartTransfer(fileIndex));
+        // 默认使用原始格式
+        return startImageTransfer(fileIndex, (byte)0);
     }
 
     // 结束图片传输
