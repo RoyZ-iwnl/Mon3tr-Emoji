@@ -31,6 +31,17 @@ const char* getStatusName(uint8_t statusCode) {
   }
 }
 
+// 获取格式名称
+const char* getFormatName(uint8_t format) {
+  switch (format & IMG_FORMAT_MASK) {
+    case IMG_FORMAT_BIN: return "BIN";
+    case IMG_FORMAT_JPEG: return "JPEG";
+    case IMG_FORMAT_PNG: return "PNG";
+    case IMG_FORMAT_GIF: return "GIF";
+    default: return "未知";
+  }
+}
+
 // 处理接收到的命令
 void processCommand(uint8_t* data, size_t length) {
   if (length < 2) return; // 命令至少需要2字节(命令ID+长度)
@@ -43,13 +54,23 @@ void processCommand(uint8_t* data, size_t length) {
   commandsReceived++;
   lastDataTime = millis();
   
-  Serial.printf("处理命令: 0x%02X (%s), 数据长度: %d\n", 
+  if (enableLogging) {
+    Serial.printf("处理命令: 0x%02X (%s), 数据长度: %d\n", 
                 cmdId, getCommandName(cmdId), payloadLength);
+  }
 
   switch (cmdId) {
     case CMD_START_TRANSFER:
       if (payloadLength >= 1) {
         uint8_t fileIndex = payload[0];
+        uint8_t format = getFormatFromIndex(fileIndex);
+        uint8_t index = getFileIndexFromIndex(fileIndex);
+        
+        if (enableLogging) {
+          Serial.printf("开始传输: 索引=%d, 格式=%s(0x%02X)\n", 
+                      index, getFormatName(format), format);
+        }
+        
         startImageTransfer(fileIndex);
       } else {
         sendResponse(cmdId, RESP_PARAM_ERROR);
@@ -63,6 +84,14 @@ void processCommand(uint8_t* data, size_t length) {
     case CMD_DELETE_IMAGE:
       if (payloadLength >= 1) {
         uint8_t fileIndex = payload[0];
+        uint8_t format = getFormatFromIndex(fileIndex);
+        uint8_t index = getFileIndexFromIndex(fileIndex);
+        
+        if (enableLogging) {
+          Serial.printf("删除图片: 索引=%d, 格式=%s(0x%02X)\n", 
+                      index, getFormatName(format), format);
+        }
+        
         deleteImage(fileIndex);
       } else {
         sendResponse(cmdId, RESP_PARAM_ERROR);
@@ -84,6 +113,14 @@ void processCommand(uint8_t* data, size_t length) {
     case CMD_SET_DISPLAY:
       if (payloadLength >= 1) {
         uint8_t imgIndex = payload[0];
+        uint8_t format = getFormatFromIndex(imgIndex);
+        uint8_t index = getFileIndexFromIndex(imgIndex);
+        
+        if (enableLogging) {
+          Serial.printf("设置显示: 索引=%d, 格式=%s(0x%02X)\n", 
+                      index, getFormatName(format), format);
+        }
+        
         setDisplayImage(imgIndex);
       } else {
         sendResponse(cmdId, RESP_PARAM_ERROR);
@@ -117,4 +154,9 @@ void sendResponse(uint8_t cmdId, uint8_t statusCode, uint8_t* payload, uint8_t p
   
   // 通过BLE发送响应
   sendBleResponse(responseBuffer, responseLength);
+  
+  if (enableLogging) {
+    Serial.printf("发送响应: 命令=0x%02X, 状态=%s(0x%02X), 长度=%d\n", 
+                cmdId, getStatusName(statusCode), statusCode, payloadLength);
+  }
 }

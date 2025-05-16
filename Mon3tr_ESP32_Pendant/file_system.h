@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <LittleFS.h>
+#include "display_handler.h" // 包含图像格式定义
 
 // 全局常量
 #define MAX_IMAGES 10
@@ -11,6 +12,9 @@
 struct ImageInfo {
   String filename;
   bool active;
+  uint8_t format;   // 图片格式
+  uint8_t fileIndex; // 文件索引
+  uint32_t fileSize; // 文件大小
 };
 
 // 全局变量声明
@@ -36,5 +40,6 @@ String getImageFilename(uint8_t index);
 void cleanupOldFiles();
 void listFiles();
 void checkFileSystem();
+String getFileExtensionFromFormat(uint8_t format);
 
 #endif // FILE_SYSTEM_H

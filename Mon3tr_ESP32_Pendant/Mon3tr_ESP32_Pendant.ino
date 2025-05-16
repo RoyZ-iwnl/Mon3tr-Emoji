@@ -1,8 +1,9 @@
 #include <Arduino.h>
 #include "ble_handler.h"
-#include "display_handler.h"
-#include "file_system.h"
 #include "commands.h"
+#include "file_system.h"
+#include "display_handler.h"
+
 
 // 最后检查时间
 unsigned long lastCheck = 0;
@@ -53,6 +54,15 @@ void handleSerialCommand() {
       listFiles();
     } else if (cmd == "status") {
       checkFileSystem();
+    } else if (cmd.startsWith("show=")) {
+      // 显示指定索引的图片
+      int idx = cmd.substring(5).toInt();
+      if (idx >= 0 && idx < totalImages) {
+        displayImage(idx);
+        Serial.printf("显示图片索引 %d\n", idx);
+      } else {
+        Serial.println("无效的图片索引");
+      }
     }
   }
 }
@@ -90,14 +100,19 @@ void loop() {
     lastCheck = now;
   }
   
-  // 2. 处理BLE状态
+  // 2. 处理GIF动画
+  if (isGifPlaying()) {
+    processGifAnimation();
+  }
+  
+  // 3. 处理BLE状态
   handleBleStatus();
   
-  // 3. 处理串口命令
+  // 4. 处理串口命令
   handleSerialCommand();
   
-  // 4. 定期任务处理
-  handlePeriodicTasks();
+  // 5. 定期任务处理
+  //handlePeriodicTasks();
   
   // 短暂延迟，让ESP32有时间处理其他系统任务
   delay(1);

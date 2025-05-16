@@ -2,6 +2,7 @@
 #define COMMANDS_H
 
 #include <Arduino.h>
+#include "display_handler.h" // 包含图像格式定义
 
 // 命令ID定义
 enum CommandID {
@@ -55,8 +56,14 @@ void sendDeviceStatus();
 // 显示操作函数声明
 void setDisplayImage(uint8_t index);
 
+// 格式处理函数声明
+uint8_t getFormatFromIndex(uint8_t index);
+uint8_t getFileIndexFromIndex(uint8_t index);
+uint8_t combineFormatAndIndex(uint8_t format, uint8_t fileIndex);
+
 // 命令名称获取函数
 const char* getCommandName(uint8_t cmdId);
 const char* getStatusName(uint8_t statusCode);
+const char* getFormatName(uint8_t format);
 
 #endif // COMMANDS_H

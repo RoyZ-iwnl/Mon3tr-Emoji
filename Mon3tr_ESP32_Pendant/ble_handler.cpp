@@ -3,6 +3,7 @@
 #include "file_system.h"
 #include <esp_bt_device.h>
 
+
 // 全局变量定义
 BLEServer* pServer = nullptr;
 BLECharacteristic* pCommandCharacteristic = nullptr;
@@ -66,7 +67,17 @@ class DataCallbacks: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pChar) {
     std::string value = pChar->getValue();
     if (value.length() > 0) {
+      // 处理图片数据
       processImageData((uint8_t*)value.data(), value.length());
+      
+      // 更新最后数据接收时间
+      lastDataTime = millis();
+      
+      // 适当延迟，防止接收过快导致设备无法处理
+      // 协议建议每个数据包之间有30ms延迟
+      if (enableLogging && value.length() > 100) {
+        Serial.printf("收到图片数据包: %d 字节\n", value.length());
+      }
     }
   }
 };
@@ -92,6 +103,8 @@ void setupBLE() {
   }
 
   BLEDevice::init("RoyZ-Mon3tr");
+  
+  // 设置最大传输单元 - 协议要求设置为512字节以提高传输效率
   BLEDevice::setMTU(517);  // 设置最大传输单元
   
   // 设置发送功率
@@ -139,7 +152,7 @@ void setupBLE() {
     NULL
   );
   
-  Serial.println("BLE初始化完成");
+  Serial.printf("BLE初始化完成，MTU设置为517字节\n");
 }
 
 // 处理命令队列任务

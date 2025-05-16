@@ -1,7 +1,7 @@
 #include "display_handler.h"
+#include "ble_handler.h"
 #include "commands.h"
 #include "file_system.h"
-#include "ble_handler.h" // 添加此行以引入sendResponse的声明
 
 // 全局变量定义
 TFT_eSPI tft = TFT_eSPI();
@@ -9,6 +9,20 @@ CST816D touch(TOUCH_SDA, TOUCH_SCL, TOUCH_RST, TOUCH_INT);
 int currentImage = 0;
 int totalImages = 0;
 unsigned long lastTapTime = 0;
+AnimatedGIF gif;
+bool gifActive = false;
+unsigned long lastGifFrameTime = 0;
+File gifFile;
+
+// PNGLE 解码相关变量
+static uint16_t png_line_buffer[SCREEN_WIDTH]; // 行缓冲区
+static uint32_t png_current_y = 0;            // 当前解码行
+
+// 屏幕参数定义
+#define SCREEN_WIDTH    240   // 屏幕宽度
+#define SCREEN_HEIGHT   240   // 屏幕高度
+#define SCREEN_CENTER_X 120   // 屏幕中心X
+#define SCREEN_CENTER_Y 120   // 屏幕中心Y
 
 // 初始化显示模块
 void setupDisplay() {
@@ -23,12 +37,19 @@ void setupDisplay() {
   delay(100);
   tft.setRotation(0);
   tft.fillScreen(TFT_BLACK);
+  tft.setSwapBytes(true);  // 设置字节交换以正确显示图像
+  
+  // 初始化JPEG解码器
+  TJpgDec.setJpgScale(1); // 设置比例为1:1
+  TJpgDec.setCallback(jpegOutput);
   
   // 显示启动信息
   showStartupScreen();
   
   // 打开背光
   digitalWrite(TFT_BL, HIGH);
+  
+  Serial.println("显示屏初始化完成");
 }
 
 // 初始化触摸模块
@@ -54,12 +75,162 @@ void controlBacklight(bool on) {
   digitalWrite(TFT_BL, on ? HIGH : LOW);
 }
 
-// 显示图片
+// 在圆形屏幕上显示文本（考虑弧度）
+void drawCircularText(const char* text, int y, uint16_t color, uint8_t size, uint8_t font) {
+  Serial.printf("显示文本: %s, Y位置: %d\n", text, y);
+  
+  // 计算文本宽度
+  tft.setTextSize(size);
+  int textWidth = tft.textWidth(text, font);
+  
+  // 计算在圆形区域内的可见X坐标
+  int radius = SCREEN_WIDTH / 2;
+  int distFromCenter = abs(y - SCREEN_CENTER_Y);
+  
+  // 防止计算错误 (当距离超过半径时)
+  if (distFromCenter >= radius) {
+    Serial.println("警告: 文本位置超出圆形区域");
+    distFromCenter = radius - 1;
+  }
+  
+  int maxWidth = 2 * sqrt(radius * radius - distFromCenter * distFromCenter);
+  
+  // 如果文本太长，调整大小
+  if (textWidth > maxWidth) {
+    while (textWidth > maxWidth && size > 1) {
+      size--;
+      tft.setTextSize(size);
+      textWidth = tft.textWidth(text, font);
+    }
+  }
+  
+  // 计算起始X位置（居中）
+  int x = SCREEN_CENTER_X - (textWidth / 2);
+  
+  tft.setTextColor(color);
+  tft.drawString(text, x, y, font);
+  
+  Serial.printf("最终位置: X=%d, Y=%d, 字体大小=%d\n", x, y, size);
+}
+
+// 在指定位置显示文本（左对齐）
+void drawText(const char* text, int x, int y, uint16_t color, uint8_t size, uint8_t font) {
+  tft.setTextSize(size);
+  tft.setTextColor(color);
+  tft.drawString(text, x, y, font);
+  
+  Serial.printf("显示文本: %s, 位置: X=%d, Y=%d\n", text, x, y);
+}
+
+// 解析图像格式
+uint8_t getFormatFromIndex(uint8_t index) {
+  return index & IMG_FORMAT_MASK; // 获取高4位
+}
+
+// 解析文件索引
+uint8_t getFileIndexFromIndex(uint8_t index) {
+  return index & IMG_INDEX_MASK; // 获取低4位
+}
+
+// 组合格式和索引
+uint8_t combineFormatAndIndex(uint8_t format, uint8_t fileIndex) {
+  return (format & IMG_FORMAT_MASK) | (fileIndex & IMG_INDEX_MASK);
+}
+
+// JPEG解码回调
+bool jpegOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) {
+  tft.pushImage(x, y, w, h, bitmap);
+  return true;
+}
+
+// PNG 像素绘制回调
+void on_png_draw(pngle_t *pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t rgba[4]) {
+    if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+
+    // 处理透明度（简单阈值）
+    if (rgba[3] < 128) return; // 透明像素不绘制
+
+    // 转换为 RGB565
+    uint16_t color = tft.color565(rgba[0], rgba[1], rgba[2]);
+
+    // 缓存当前行
+    if (y != png_current_y) {
+        // 推送上一行数据
+        tft.pushImage(0, png_current_y, SCREEN_WIDTH, 1, png_line_buffer);
+        memset(png_line_buffer, 0, sizeof(png_line_buffer)); // 清空缓冲区
+        png_current_y = y;
+    }
+    png_line_buffer[x] = color;
+}
+
+// GIF解码回调
+void GIFDraw(GIFDRAW *pDraw) {
+  uint16_t* pixels = (uint16_t*)pDraw->pPixels;
+  
+  // 对于透明像素，我们需要保留背景
+  if (pDraw->ucDisposalMethod == 2) {
+    tft.pushImage(pDraw->iX, pDraw->iY, pDraw->iWidth, 1, pixels);
+  }
+  else {
+    // 读取当前显示的一行像素
+    uint16_t usTemp[IMAGE_WIDTH];
+    tft.readRect(pDraw->iX, pDraw->iY, pDraw->iWidth, 1, usTemp);
+    
+    // 处理透明像素
+    for (int x = 0; x < pDraw->iWidth; x++) {
+      if (pixels[x] == 0) {
+        pixels[x] = usTemp[x];
+      }
+    }
+    
+    tft.pushImage(pDraw->iX, pDraw->iY, pDraw->iWidth, 1, pixels);
+  }
+}
+
+// GIF文件回调函数
+void* GIFOpenFile(const char* fname, int32_t* pSize) {
+  File* f = new File(LittleFS.open(fname, "r"));
+  if (!f || !f->available()) {
+    if (f) delete f;
+    return NULL;
+  }
+  *pSize = f->size();
+  return f;
+}
+
+void GIFCloseFile(void* pHandle) {
+  File* f = (File*)pHandle;
+  if (f) {
+    f->close();
+    delete f;
+  }
+}
+
+int32_t GIFReadFile(GIFFILE* pFile, uint8_t* pBuf, int32_t iLen) {
+  File* f = (File*)pFile->fHandle;
+  return f->read(pBuf, iLen);
+}
+
+int32_t GIFSeekFile(GIFFILE* pFile, int32_t iPosition) {
+  File* f = (File*)pFile->fHandle;
+  return f->seek(iPosition);
+}
+
+// 显示图片 - 没有任何文字
 void displayImage(int index) {
   if (index >= totalImages || index < 0) {
     Serial.println("错误：图片索引超出范围");
     tft.fillScreen(TFT_RED);
     return;
+  }
+
+  // 如果当前有GIF在播放，关闭它
+  if (gifActive) {
+    gif.close();
+    if (gifFile) {
+      gifFile.close();
+    }
+    gifActive = false;
   }
 
   String filename = getImageFilename(index);
@@ -69,49 +240,101 @@ void displayImage(int index) {
     return;
   }
 
-  File f = LittleFS.open(filename, "r");
-  if (!f) {
-    Serial.println("错误：无法打开文件: " + filename);
-    tft.fillScreen(TFT_YELLOW);
-    return;
-  }
+  // 获取文件扩展名
+  String extension = filename.substring(filename.lastIndexOf("."));
+  extension.toLowerCase();
 
-  // 清屏
+  // 清屏 - 确保没有文字
   tft.fillScreen(TFT_BLACK);
 
-  // 读取并显示图片
-  uint8_t buf[IMAGE_WIDTH * 2 * 4];  // 4行缓冲
-  uint16_t* pixelBuf = (uint16_t*)buf;
-  int rowsAtTime = 4;  // 一次处理4行
+  Serial.println("准备显示图片: " + filename + ", 格式: " + extension);
 
-  for (int y = 0; y < IMAGE_HEIGHT; y += rowsAtTime) {
-    int remainingRows = min(rowsAtTime, IMAGE_HEIGHT - y);
-    int bytesToRead = IMAGE_WIDTH * 2 * remainingRows;
-
-    if (f.available() < bytesToRead) {
-      // 文件数据不足
-      tft.fillRect(0, y, IMAGE_WIDTH, IMAGE_HEIGHT - y, TFT_RED);
-      Serial.printf("第 %d 行数据不足\n", y);
-      break;
-    }
-
-    size_t bytesRead = f.read(buf, bytesToRead);
-    if (bytesRead == bytesToRead) {
-      for (int r = 0; r < remainingRows; r++) {
-        tft.pushImage(0, y + r, IMAGE_WIDTH, 1, &pixelBuf[r * IMAGE_WIDTH]);
+  // 根据文件类型使用不同的解码器
+  if (extension == ".jpg" || extension == ".jpeg") {
+    File f = LittleFS.open(filename, "r");
+    if (f) {
+      uint32_t fileSize = f.size();
+      uint8_t* buffer = (uint8_t*)malloc(fileSize);
+      if (buffer) {
+        f.read(buffer, fileSize);
+        TJpgDec.drawJpg(0, 0, buffer, fileSize);
+        free(buffer);
       }
-    } else {
-      Serial.printf("读取失败\n");
-      tft.fillRect(0, y, IMAGE_WIDTH, IMAGE_HEIGHT - y, TFT_MAGENTA);
-      break;
+      f.close();
     }
+  } 
+  else if (extension == ".png") {
+        File f = LittleFS.open(filename, "r");
+        if (!f) {
+            Serial.println("错误：无法打开PNG文件");
+            return;
+        }
 
-    // 小延迟让系统处理其他任务
-    delay(1);
+        pngle_t *pngle = pngle_new();
+        pngle_set_draw_callback(pngle, on_png_draw);
+
+        // 初始化行缓存
+        png_current_y = 0;
+        memset(png_line_buffer, 0, sizeof(png_line_buffer));
+
+        // 分块解码
+        uint8_t buffer[256];
+        size_t len;
+        int ret;
+        while ((len = f.read(buffer, sizeof(buffer))) > 0) {
+            if ((ret = pngle_feed(pngle, buffer, len)) < 0) {
+                Serial.printf("PNG解码错误: %s\n", pngle_error(pngle));
+                break;
+            }
+        }
+
+        // 推送最后一行
+        if (png_current_y < SCREEN_HEIGHT) {
+            tft.pushImage(0, png_current_y, SCREEN_WIDTH, 1, png_line_buffer);
+        }
+
+        pngle_destroy(pngle);
+        f.close();
+    }
+  else if (extension == ".gif") {
+    // 对于GIF，我们只进行初始化，实际播放在主循环中处理
+    gifFile = LittleFS.open(filename, "r");
+    if (gifFile) {
+      if (gif.open(filename.c_str(), GIFOpenFile, GIFCloseFile, GIFReadFile, GIFSeekFile, GIFDraw)) {
+        Serial.println("GIF文件打开成功");
+        gifActive = true;
+        gif.playFrame(true, NULL); // 显示第一帧
+        lastGifFrameTime = millis();
+      } else {
+        Serial.println("GIF文件打开失败");
+        gifFile.close();
+      }
+    }
+  } 
+  else {
+    // 不支持的格式 - 不显示任何文字，只是显示空白屏幕
+    Serial.println("不支持的图片格式: " + extension);
   }
 
-  f.close();
   Serial.println("图片显示完成");
+}
+
+// 检查是否有GIF在播放
+bool isGifPlaying() {
+  return gifActive;
+}
+
+// 处理GIF动画
+void processGifAnimation() {
+  if (gifActive) {
+    unsigned long now = millis();
+    if (now - lastGifFrameTime > 50) { // 约20FPS
+      lastGifFrameTime = now;
+      if (!gif.playFrame(false, NULL)) {
+        gif.reset(); // 循环播放
+      }
+    }
+  }
 }
 
 // 检查手势
@@ -160,25 +383,39 @@ void setDisplayImage(uint8_t index) {
   }
 }
 
-// 显示启动画面
+// 显示启动画面 - 使用英文
 void showStartupScreen() {
-  tft.setTextColor(TFT_WHITE);
-  tft.setTextSize(2);
-  tft.drawString("Mon3tr 启动中...", 40, 110);
-}
-
-// 显示错误画面
-void showErrorScreen(const char* message) {
   tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_RED);
-  tft.setTextSize(2);
-  tft.drawString(message, 40, 110);
+  drawCircularText("Mon3tr", 90, TFT_GREEN, 3);
+  drawCircularText("STARTING...", 130, TFT_WHITE, 2);
+  drawCircularText("By:RoyZ", 160, TFT_WHITE, 2);
+  
+  Serial.println("显示启动画面");
 }
 
-// 显示等待画面
+// 显示等待画面 - 使用英文
 void showWaitingScreen() {
   tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE);
-  tft.setTextSize(2);
-  tft.drawString("等待图片上传...", 40, 110);
+  drawCircularText("Mon3tr", 60, TFT_GREEN, 3);
+  drawCircularText("By:RoyZ", 100, TFT_CYAN, 1);
+  drawCircularText("WAITING", 130, TFT_YELLOW, 2);
+  drawCircularText("IMAGE UPLOAD...", 160, TFT_WHITE, 2);
+  
+  Serial.println("显示等待画面");
+}
+
+
+// 显示错误画面 - 使用英文
+void showErrorScreen(const char* message) {
+  tft.fillScreen(TFT_BLACK);
+  drawCircularText("ERROR", 90, TFT_RED, 3);
+  drawCircularText(message, 130, TFT_WHITE, 2);
+  
+  Serial.printf("显示错误画面: %s\n", message);
+}
+
+// 清除屏幕
+void clearScreen() {
+  tft.fillScreen(TFT_BLACK);
+  Serial.println("清除屏幕");
 }
