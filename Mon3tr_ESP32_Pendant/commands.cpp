@@ -138,10 +138,21 @@ void processCommand(uint8_t* data, size_t length) {
 }
 
 // 发送命令响应
+// 修改 commands.cpp 中的 sendResponse 函数
+
 void sendResponse(uint8_t cmdId, uint8_t statusCode, uint8_t* payload, uint8_t payloadLength) {
   // 准备响应数据包
-  uint8_t responseBuffer[20]; // 预留足够空间，最大响应长度
+  // 最大负载是从 sendImageList 函数传入: 1 + MAX_IMAGES * 6 = 61 字节
+  // 因此需要至少 3 + 61 = 64 字节的缓冲区
+  uint8_t responseBuffer[64]; 
   uint8_t responseLength = 3 + payloadLength; // 命令ID + 状态码 + 负载长度 + 负载
+  
+  // 安全检查以防止缓冲区溢出
+  if (payloadLength > 61) {
+    Serial.println("警告：负载太大，已截断");
+    payloadLength = 61;
+    responseLength = 3 + payloadLength;
+  }
   
   responseBuffer[0] = cmdId;        // 命令ID
   responseBuffer[1] = statusCode;   // 状态码
