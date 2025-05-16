@@ -1,6 +1,11 @@
 package gg.dmr.royz.m3;
 
 
+import static gg.dmr.royz.m3.utils.ImageConverter.FORMAT_JPEG;
+import static gg.dmr.royz.m3.utils.ImageConverter.FORMAT_PNG;
+import static gg.dmr.royz.m3.utils.ImageConverter.FORMAT_GIF;
+import static gg.dmr.royz.m3.utils.ImageConverter.getFormatType;
+
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -252,9 +257,18 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
 
     private void handleImageSelection(Uri imageUri) {
         try {
-            // 使用修改后的加载方法，直接调整为240x240
-            Bitmap bitmap = ImageConverter.loadImageFromUri(this, imageUri);
+            // 获取图片格式类型
+            byte formatType = getFormatType(this, imageUri);
 
+            // 如果是 GIF 格式
+            if (formatType == FORMAT_GIF) {
+                Toast.makeText(this, "GIF功能还在开发QAQ~", Toast.LENGTH_LONG).show();
+                //showIndexSelectionDialogForGif(imageUri);
+                return;
+            }
+
+            // 非 GIF 格式的处理
+            Bitmap bitmap = ImageConverter.loadImageFromUri(this, imageUri);
             if (bitmap == null) {
                 LogUtil.logError("加载图片失败");
                 Toast.makeText(this, "加载图片失败", Toast.LENGTH_SHORT).show();
@@ -268,6 +282,39 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
             LogUtil.logError("处理图片失败: " + e.getMessage());
             Toast.makeText(this, "处理图片失败", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    // 为GIF文件添加专门的索引选择对话框
+    private void showIndexSelectionDialogForGif(final Uri gifUri) {
+        // 构建索引列表
+        List<DeviceImage> images = viewModel.getImageList().getValue();
+        final List<String> options = new ArrayList<>();
+
+        if (images != null) {
+            for (DeviceImage image : images) {
+                options.add("替换图片 " + image.getIndex() +
+                        (image.getName().isEmpty() ? "" : " (" + image.getName() + ")"));
+            }
+        }
+        options.add("添加为新图片");
+
+        // 显示位置选择对话框
+        new AlertDialog.Builder(this)
+                .setTitle("选择GIF上传位置")
+                .setItems(options.toArray(new String[0]), (dialog, which) -> {
+                    // 确定目标索引
+                    byte targetIndex;
+                    if (which < options.size() - 1) {
+                        targetIndex = images != null ? images.get(which).getIndex() : 0;
+                    } else {
+                        targetIndex = (byte) (images != null ? images.size() : 0);
+                    }
+
+                    // 直接上传GIF文件
+                    viewModel.uploadGifFromUri(gifUri, targetIndex);
+                })
+                .setNegativeButton("取消", null)
+                .show();
     }
 
     private void showIndexAndFormatSelectionDialog(final Bitmap bitmap) {
@@ -306,23 +353,54 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
     }
 
     private void showFormatSelectionDialog(final Bitmap bitmap, final byte targetIndex) {
-        final String[] formats = {"JPEG (推荐)", "PNG", "GIF"};
+        final String[] formats = {"JPEG (推荐)", "PNG"};//, "GIF (需要选择GIF文件)"};
+        //数组0开始计数所以PNG是case1
 
         new AlertDialog.Builder(this)
                 .setTitle("选择图片格式")
                 .setItems(formats, (dialog, which) -> {
                     String format;
                     switch (which) {
-                        case 1: format = "PNG"; break;
-                        case 2: format = "GIF"; break;
-                        default: format = "JPG"; break;
+                        case 1:
+                            format = "PNG";
+                            viewModel.uploadImage(bitmap, targetIndex, format);
+                            break;
+                        /*case 2:
+                            format = "GIF";
+                            // 对于GIF格式，需要单独选择GIF文件
+                            chooseGifFile(targetIndex);
+                            break;*/
+                        default:
+                            format = "JPG";
+                            viewModel.uploadImage(bitmap, targetIndex, format);
+                            break;
                     }
-
-                    // 上传图片
-                    viewModel.uploadImage(bitmap, targetIndex, format);
                 })
                 .setNegativeButton("取消", null)
                 .show();
+    }
+    private void chooseGifFile(byte targetIndex) {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("image/gif");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+
+        // 使用新的launcher处理GIF文件选择结果
+        ActivityResultLauncher<Intent> gifPickerLauncher =
+                registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        Uri gifUri = result.getData().getData();
+                        if (gifUri != null) {
+                            // 直接传递URI给ViewModel处理
+                            viewModel.uploadGifFromUri(gifUri, targetIndex);
+                        }
+                    }
+                });
+
+        try {
+            gifPickerLauncher.launch(Intent.createChooser(intent, "选择GIF文件"));
+        } catch (android.content.ActivityNotFoundException ex) {
+            Toast.makeText(this, "请安装文件管理器应用", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void showIndexSelectionDialog(final Bitmap bitmap) {
@@ -435,6 +513,7 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                     toolbar.setNavigationOnClickListener(v -> {
                         // 退出拖拽模式
                         imageAdapter.enableDrag(false);
+                        viewModel.refreshImageList();
                         getSupportActionBar().setTitle(R.string.app_name);
                         getSupportActionBar().setDisplayHomeAsUpEnabled(false);
                         toolbar.setNavigationOnClickListener(null);

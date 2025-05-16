@@ -4,6 +4,7 @@ import android.app.Application;
 import android.bluetooth.BluetoothDevice;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
@@ -120,6 +121,8 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
 
         LogUtil.log("删除图片: " + index);
         bleManager.sendCommand(CommandHandler.cmdDeleteImage(index));
+        refreshDeviceStatus();
+        refreshImageList();
     }
 
     // 设置显示图片
@@ -131,6 +134,7 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
 
         LogUtil.log("设置显示图片: " + index);
         bleManager.sendCommand(CommandHandler.cmdSetDisplay(index));
+        refreshImageList();
     }
 
     // 重排图片
@@ -174,9 +178,11 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
             imageData = ImageConverter.convertBitmapToPng(bitmap);
             formatId = 0x20;
         } else if (format.equalsIgnoreCase("GIF")) {
-            // GIF格式（注意：Android不支持直接转换为GIF，这里仅作为接口保留）
-            imageData = ImageConverter.convertBitmapToJpeg(bitmap, 90);
-            formatId = 0x30;
+            // GIF格式 - 通知用户限制
+            //Toast.makeText(getApplication(), "GIF功能仅支持上传已有的GIF文件", Toast.LENGTH_LONG).show();
+            //LogUtil.logError("GIF转换不支持，无法从位图生成GIF");
+            //isTransferring.setValue(false);
+            return;
         } else {
             // 默认使用JPEG
             imageData = ImageConverter.convertBitmapToJpeg(bitmap, 85);
@@ -223,21 +229,70 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
         });
     }
 
-    // 添加一个从Uri上传图片的方法
-    /*public void uploadImageFromUri(Uri imageUri, byte targetIndex, String format) {
-        try {
-            // 加载Bitmap
-            Bitmap bitmap = ImageConverter.loadImageFromUri(getApplication(), imageUri,
-                    Constants.IMAGE_WIDTH, Constants.IMAGE_HEIGHT);
-            if (bitmap != null) {
-                uploadImage(bitmap, targetIndex, format);
-            } else {
-                LogUtil.logError("无法从Uri加载图片");
-            }
-        } catch (Exception e) {
-            LogUtil.logError("处理图片时出错: " + e.getMessage());
+    /**
+     * 新增方法：直接从URI上传GIF文件
+     * 这个方法专门用于GIF文件的上传
+     */
+    public void uploadGifFromUri(Uri gifUri, byte targetIndex) {
+        if (bleManager.getState() != BleManager.State.CONNECTED) {
+            LogUtil.logError("设备未连接，无法上传GIF");
+            return;
         }
-    }*/
+
+        // 设置状态
+        isTransferring.setValue(true);
+        transferProgress.setValue(0);
+
+        // 加载GIF文件数据
+        byte[] gifData = ImageConverter.loadGifFromUri(getApplication(), gifUri);
+        if (gifData == null) {
+            LogUtil.logError("无法加载GIF文件");
+            isTransferring.setValue(false);
+            Toast.makeText(getApplication(), "GIF文件加载失败", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        LogUtil.log("GIF文件加载成功，大小: " + gifData.length + " 字节");
+
+        // 确保目标索引只使用低4位
+        byte actualIndex = (byte)(targetIndex & 0x0F);
+        // GIF格式ID为0x30
+        byte formatId = 0x30;
+        // 组合格式和索引
+        byte combinedIndex = (byte)(formatId | actualIndex);
+
+        // 开始传输过程
+        // 1. 发送开始传输命令
+        bleManager.startImageTransfer(actualIndex, formatId);
+
+        // 2. 分包发送GIF数据
+        bleManager.sendImageData(gifData, new BleManager.TransferCallback() {
+            @Override
+            public void onProgress(int current, int total) {
+                int progress = (int) ((current * 100.0) / total);
+                transferProgress.setValue(progress);
+                LogUtil.log("GIF传输进度: " + current + "/" + total + " 字节 (" + progress + "%)");
+            }
+
+            @Override
+            public void onComplete() {
+                LogUtil.log("GIF数据传输完成");
+
+                // 3. 发送结束传输命令
+                bleManager.endImageTransfer();
+
+                // 4. 传输结束，刷新列表
+                isTransferring.setValue(false);
+                refreshImageList();
+            }
+
+            @Override
+            public void onError(String message) {
+                LogUtil.logError("GIF传输失败: " + message);
+                isTransferring.setValue(false);
+            }
+        });
+    }
 
     // 处理命令响应
     public void handleCommandResponse(byte[] response) {

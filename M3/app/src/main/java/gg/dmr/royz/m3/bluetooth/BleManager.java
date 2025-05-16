@@ -700,7 +700,7 @@ public class BleManager {
         }
     }
 
-    // ==== 高级命令接口 ====
+    // ==== 高级命令接口，目前没卵用Viewmodel杀完了 ====
 
     // 获取图片列表
     public void getImageList(CommandHandler.ImageListCallback callback) {
