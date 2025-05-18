@@ -44,4 +44,5 @@ dependencies {
     implementation (libs.androidx.cardview)
     implementation (libs.androidx.lifecycle.viewmodel)
     implementation (libs.androidx.lifecycle.livedata)
+    implementation (libs.android.gif.drawable)
 }

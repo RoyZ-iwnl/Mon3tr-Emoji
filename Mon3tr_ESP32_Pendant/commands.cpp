@@ -37,7 +37,7 @@ const char* getFormatName(uint8_t format) {
     case IMG_FORMAT_BIN: return "BIN";
     case IMG_FORMAT_JPEG: return "JPEG";
     case IMG_FORMAT_PNG: return "PNG";
-    case IMG_FORMAT_GIF: return "GIF";
+    case IMG_FORMAT_GIFPACK: return "GIFPACK";
     default: return "未知";
   }
 }

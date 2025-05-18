@@ -9,10 +9,13 @@ CST816D touch(TOUCH_SDA, TOUCH_SCL, TOUCH_RST, TOUCH_INT);
 int currentImage = 0;
 int totalImages = 0;
 unsigned long lastTapTime = 0;
-AnimatedGIF gif;
-bool gifActive = false;
-unsigned long lastGifFrameTime = 0;
-File gifFile;
+File gifpackFile;
+GIFPackHeader gifpackHeader;
+uint32_t* frameOffsets = nullptr;
+int currentFrame = 0;
+bool gifpackActive = false;
+unsigned long lastFrameTime = 0;
+
 
 // PNGLE 解码相关变量
 static uint16_t png_line_buffer[SCREEN_WIDTH];  // 行缓冲区
@@ -132,7 +135,7 @@ uint8_t getFileIndexFromIndex(uint8_t index) {
   return index & IMG_INDEX_MASK;  // 获取低4位
 }
 
-// 组合格式和索引
+// 组合格式和索引？？？？
 uint8_t combineFormatAndIndex(uint8_t format, uint8_t fileIndex) {
   return (format & IMG_FORMAT_MASK) | (fileIndex & IMG_INDEX_MASK);
 }
@@ -163,104 +166,173 @@ void on_png_draw(pngle_t* pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h,
   png_line_buffer[x] = color;
 }
 
-// GIF 解码回调函数
-void GIFDraw(GIFDRAW *pDraw) {
-    uint8_t *s;
-    uint16_t *d, *usTemp;
-    int x, y;
+// 检查是否有GIFPack在播放
+bool isGifpackPlaying() {
+  return gifpackActive;
+}
 
-    // 计算实际宽度（不超过屏幕）
-    int iWidth = (pDraw->iWidth > SCREEN_WIDTH) ? SCREEN_WIDTH : pDraw->iWidth;
+// 打开GIFPack文件
+bool openGifpack(const char* filename) {
+  // 如果有正在播放的GIFPack，先关闭
+  if (gifpackActive) {
+    gifpackActive = false;  // 先设置标志，防止其他线程访问
     
-    s = pDraw->pPixels;             // 原始像素数据（索引）
-    y = pDraw->iY + pDraw->y;       // 当前行的实际Y坐标
+    if (frameOffsets) {
+      free(frameOffsets);
+      frameOffsets = nullptr;
+    }
     
-    if (y >= SCREEN_HEIGHT) return;  // 超出屏幕范围，直接返回
+    if (gifpackFile) {
+      gifpackFile.close();
+    }
     
-    if (pDraw->ucHasTransparency) { // 有透明像素需要特殊处理
-        // 分配临时缓冲区
-        usTemp = (uint16_t *)malloc(iWidth * 2);
-        if (usTemp == NULL) {
-            Serial.println("内存分配失败");
-            return;
-        }
-        
-        // 读取当前屏幕内容作为背景
-        tft.readRect(pDraw->iX, y, iWidth, 1, usTemp);
-        
-        // 准备像素数据
-        d = (uint16_t *)pDraw->pPixels;
-        
-        // 处理每个像素
-        for (x = 0; x < iWidth; x++) {
-            if (pDraw->pPalette[s[x]] == 0) { // 透明像素
-                d[x] = usTemp[x];              // 保持背景
-            } else {
-                // 从调色板获取颜色并转换为RGB565
-                uint32_t rgb = pDraw->pPalette[s[x]];
-                d[x] = tft.color565(
-                    (rgb >> 16) & 0xFF,  // R
-                    (rgb >> 8) & 0xFF,   // G
-                    rgb & 0xFF           // B
-                );
-            }
-        }
-        
-        // 显示处理后的像素
-        tft.pushImage(pDraw->iX, y, iWidth, 1, d);
-        
-        // 释放临时缓冲区
-        free(usTemp);
-    } else {
-        // 没有透明像素，直接转换和显示
-        d = (uint16_t *)pDraw->pPixels;
-        for (x = 0; x < iWidth; x++) {
-            uint32_t rgb = pDraw->pPalette[s[x]];
-            d[x] = tft.color565(
-                (rgb >> 16) & 0xFF,
-                (rgb >> 8) & 0xFF,
-                rgb & 0xFF
-            );
-        }
-        tft.pushImage(pDraw->iX, y, iWidth, 1, d);
+    // 短暂延迟确保文件完全关闭
+    delay(10);
+  }
+  
+  // 确保文件变量为初始状态
+  gifpackFile = File();
+  
+  // 打开文件
+  gifpackFile = LittleFS.open(filename, "r");
+  if (!gifpackFile) {
+    Serial.println("打开GIFPack文件失败");
+    return false;
+  }
+  
+  // 读取头信息
+  size_t headerSize = sizeof(GIFPackHeader);
+  size_t bytesRead = gifpackFile.read((uint8_t*)&gifpackHeader, headerSize);
+  if (bytesRead != headerSize) {
+    Serial.printf("读取GIFPack头信息失败: 请求%d字节, 只读取到%d字节\n", 
+                  headerSize, bytesRead);
+    gifpackFile.close();
+    return false;
+  }
+  
+  // 检查魔术字节
+  if (memcmp(gifpackHeader.magic, GIFPACK_MAGIC, 4) != 0 || gifpackHeader.version != GIFPACK_VERSION) {
+    Serial.println("无效的GIFPack格式");
+    gifpackFile.close();
+    return false;
+  }
+  
+  Serial.printf("GIFPack信息: %d帧, %dfps, %dx%d\n", 
+                gifpackHeader.frames, gifpackHeader.fps, 
+                gifpackHeader.width, gifpackHeader.height);
+  
+  // 分配帧偏移量数组内存
+  frameOffsets = (uint32_t*)malloc(sizeof(uint32_t) * gifpackHeader.frames);
+  if (!frameOffsets) {
+    Serial.println("内存分配失败");
+    gifpackFile.close();
+    return false;
+  }
+  
+  // 读取帧偏移量
+  if (gifpackFile.read((uint8_t*)frameOffsets, sizeof(uint32_t) * gifpackHeader.frames) 
+      != sizeof(uint32_t) * gifpackHeader.frames) {
+    Serial.println("读取帧偏移量失败");
+    free(frameOffsets);
+    frameOffsets = nullptr;
+    gifpackFile.close();
+    return false;
+  }
+  
+  currentFrame = 0;
+  gifpackActive = true;
+  lastFrameTime = millis();
+  
+  return true;
+}
+
+// 安全关闭GIFPack资源
+void closeGifpack() {
+  // 先设置标志，防止其他线程访问
+  gifpackActive = false;
+  
+  if (frameOffsets) {
+    free(frameOffsets);
+    frameOffsets = nullptr;
+  }
+  
+  if (gifpackFile) {
+    gifpackFile.close();
+    delay(10); // 短暂延迟确保文件完全关闭
+  }
+  
+  Serial.println("GIFPack资源已关闭");
+}
+
+// 显示当前帧
+bool showGifpackFrame() {
+  if (!gifpackActive || !frameOffsets) return false;
+  
+  // 检查帧索引范围
+  if (currentFrame >= gifpackHeader.frames) {
+    currentFrame = 0;  // 循环播放
+  }
+  
+  // 跳转到帧数据位置
+  if (!gifpackFile.seek(frameOffsets[currentFrame])) {
+    Serial.printf("跳转到帧 %d 失败\n", currentFrame);
+    return false;
+  }
+  
+  // 计算帧大小
+  uint32_t frameSize;
+  if (currentFrame < gifpackHeader.frames - 1) {
+    frameSize = frameOffsets[currentFrame + 1] - frameOffsets[currentFrame];
+  } else {
+    frameSize = gifpackFile.size() - frameOffsets[currentFrame];
+  }
+  
+  if (frameSize <= 0 || frameSize > 100000) {  // 安全检查
+    Serial.printf("帧 %d 大小异常: %d\n", currentFrame, frameSize);
+    return false;
+  }
+  
+  // 读取帧数据
+  uint8_t* buffer = (uint8_t*)malloc(frameSize);
+  if (!buffer) {
+    Serial.println("内存分配失败");
+    return false;
+  }
+  
+  if (gifpackFile.read(buffer, frameSize) != frameSize) {
+    Serial.printf("读取帧 %d 数据失败\n", currentFrame);
+    free(buffer);
+    return false;
+  }
+  
+  // 解码JPEG并显示
+  TJpgDec.drawJpg(0, 0, buffer, frameSize);
+  free(buffer);
+  
+  // 更新帧索引
+  currentFrame++;
+  return true;
+}
+
+// 处理GIFPack动画
+void processGifpackAnimation() {
+  if (!gifpackActive) return;
+  
+  unsigned long now = millis();
+  // 计算帧间隔时间（毫秒）
+  unsigned long frameInterval = 1000 / gifpackHeader.fps;
+  
+  if (now - lastFrameTime > frameInterval) {
+    lastFrameTime = now;
+    
+    if (!showGifpackFrame()) {
+      Serial.println("播放GIFPack帧失败，重置");
+      currentFrame = 0;  // 尝试重置
     }
+  }
 }
 
-// 打开GIF文件
-void* GIFOpenFile(const char *fname, int32_t *pSize) {
-    File f = LittleFS.open(fname, "r");
-    if (!f) {
-        Serial.println("打开GIF文件失败");
-        return NULL;
-    }
-    *pSize = f.size();
-    return new File(f);
-}
-
-// 关闭GIF文件
-void GIFCloseFile(void *pHandle) {
-    File *f = (File *)pHandle;
-    if (f != NULL) {
-        f->close();
-        delete f;
-    }
-}
-
-// 读取GIF数据
-int32_t GIFReadFile(GIFFILE *pFile, uint8_t *pBuf, int32_t iLen) {
-    File *f = (File *)pFile->fHandle;
-    if (f == NULL) return 0;
-    return f->read(pBuf, iLen);
-}
-
-// 定位GIF文件位置
-int32_t GIFSeekFile(GIFFILE *pFile, int32_t iPosition) {
-    File *f = (File *)pFile->fHandle;
-    if (f == NULL) return 0;
-    return f->seek(iPosition);
-}
-
-// 显示图片 - 没有任何文字
+  // 显示图片 - 没有任何文字
 void displayImage(int index) {
   if (index >= totalImages || index < 0) {
     Serial.println("错误：图片索引超出范围");
@@ -268,13 +340,22 @@ void displayImage(int index) {
     return;
   }
 
-  // 如果当前有GIF在播放，关闭它
-  if (gifActive) {
-    gif.close();
-    if (gifFile) {
-      gifFile.close();
+  // 如果当前有GIFPack在播放，先正确关闭它
+  if (gifpackActive) {
+    // 关闭GIFPack资源
+    gifpackActive = false;  // 先设置标志，防止播放线程继续访问
+    
+    if (frameOffsets) {
+      free(frameOffsets);
+      frameOffsets = nullptr;
     }
-    gifActive = false;
+    
+    if (gifpackFile) {
+      gifpackFile.close();
+    }
+    
+    // 短暂延迟确保文件完全关闭
+    delay(10);
   }
 
   String filename = getImageFilename(index);
@@ -338,47 +419,19 @@ void displayImage(int index) {
 
     pngle_destroy(pngle);
     f.close();
-  } else if (extension == ".gif") {
-    // 对于GIF，我们只进行初始化，实际播放在主循环中处理
-    gifFile = LittleFS.open(filename, "r");
-    if (gifFile) {
-      Serial.printf("GIF文件打开成功，大小: %d 字节\n", gifFile.size());
-
-      // 尝试读取GIF文件头以确认格式
-      uint8_t header[6];
-      size_t bytesRead = gifFile.read(header, 6);
-
-      if (bytesRead == 6 && header[0] == 'G' && header[1] == 'I' && header[2] == 'F' && header[3] == '8' && (header[4] == '9' || header[4] == '7') && header[5] == 'a') {
-        Serial.println("有效的GIF文件头");
-
-        // 确保文件指针重置到开头
-        gifFile.seek(0);
-
-        // 打开GIF解码
-        if (gif.open(filename.c_str(), GIFOpenFile, GIFCloseFile, GIFReadFile, GIFSeekFile, GIFDraw)) {
-          Serial.println("GIF解码器初始化成功");
-          gifActive = true;
-
-          // 尝试显示第一帧
-          if (gif.playFrame(true, NULL)) {
-            Serial.println("第一帧显示成功");
-          } else {
-            Serial.println("第一帧显示失败");
-          }
-
-          lastGifFrameTime = millis();
-        } else {
-          Serial.println("GIF解码器初始化失败");
-          gifFile.close();
-          gifActive = false;
-        }
+  } else if (extension == ".gfp") {
+    // 对于GIFPack，我们初始化播放器
+    if (openGifpack(filename.c_str())) {
+      Serial.println("GIFPack初始化成功");
+      // 显示第一帧
+      if (showGifpackFrame()) {
+        Serial.println("第一帧显示成功");
       } else {
-        Serial.println("无效的GIF文件头");
-        gifFile.close();
-        gifActive = false;
+        Serial.println("第一帧显示失败");
+        gifpackActive = false;
       }
     } else {
-      Serial.println("GIF文件打开失败");
+      Serial.println("GIFPack初始化失败");
     }
   } else {
     // 不支持的格式 - 不显示任何文字，只是显示空白屏幕
@@ -386,26 +439,6 @@ void displayImage(int index) {
   }
 
   Serial.println("图片显示完成");
-}
-
-// 检查是否有GIF在播放
-bool isGifPlaying() {
-  return gifActive;
-}
-
-// 处理GIF动画
-void processGifAnimation() {
-    if (!gifActive) return;
-    
-    unsigned long now = millis();
-    if (now - lastGifFrameTime > 20) { // 约50FPS
-        lastGifFrameTime = now;
-        
-        if (!gif.playFrame(false, NULL)) {
-            Serial.println("重新播放GIF");
-            gif.reset(); // 循环播放
-        }
-    }
 }
 
 // 检查手势

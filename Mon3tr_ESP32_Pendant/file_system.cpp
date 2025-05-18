@@ -14,6 +14,7 @@ uint8_t currentFileFormat = 0; // 当前传输的文件格式
 // 初始化文件系统
 void setupFileSystem() {
   Serial.println("初始化LittleFS...");
+  closeAllFiles();
   
   if (!LittleFS.begin(false)) {  // 先尝试不格式化挂载
     Serial.println("LittleFS挂载失败，尝试格式化...");
@@ -50,8 +51,8 @@ String getFileExtensionFromFormat(uint8_t format) {
       return ".jpg";
     case IMG_FORMAT_PNG:
       return ".png";
-    case IMG_FORMAT_GIF:
-      return ".gif";
+    case IMG_FORMAT_GIFPACK:
+      return ".gfp";
     default:
       return ".bin"; // 默认格式
   }
@@ -82,8 +83,8 @@ void updateImageList() {
         format = IMG_FORMAT_JPEG;
       } else if (ext == ".png") {
         format = IMG_FORMAT_PNG;
-      } else if (ext == ".gif") {
-        format = IMG_FORMAT_GIF;
+      } else if (ext == ".gfp") {
+        format = IMG_FORMAT_GIFPACK;
       } else if (ext != ".bin") {
         // 跳过不支持的格式
         file = root.openNextFile();
@@ -290,7 +291,7 @@ void finishImageTransfer() {
   
   // 检查最小有效大小（根据格式调整）
   size_t minSize = 100; // 对于JPEG和PNG，太小的文件可能是无效的
-  if (currentFileFormat == IMG_FORMAT_GIF) {
+  if (currentFileFormat == IMG_FORMAT_GIFPACK) {
     minSize = 50; // GIF可以很小
   }
   
@@ -357,6 +358,22 @@ void deleteImage(uint8_t fileIndex) {
   if (foundIndex >= 0) {
     String filename = imageList[foundIndex].filename;
     
+    // 检查这个文件是否为当前正在播放的GIFPack
+    if (gifpackActive && filename == getImageFilename(currentImage)) {
+      // 关闭GIFPack文件
+      if (frameOffsets) {
+        free(frameOffsets);
+        frameOffsets = nullptr;
+      }
+      if (gifpackFile) {
+        gifpackFile.close();
+      }
+      gifpackActive = false;
+    }
+    
+    // 确保任何文件处理已经完成
+    delay(100);  // 给系统一点时间关闭文件
+    
     if (LittleFS.remove(filename)) {
       Serial.printf("已删除文件: %s\n", filename.c_str());
       
@@ -380,6 +397,28 @@ void deleteImage(uint8_t fileIndex) {
   } else {
     sendResponse(CMD_DELETE_IMAGE, RESP_PARAM_ERROR);
   }
+}
+
+void closeAllFiles() {
+  // 关闭当前传输中的文件
+  if (currentImageFile) {
+    currentImageFile.close();
+  }
+  
+  // 关闭GIFPack文件
+  if (gifpackActive) {
+    if (frameOffsets) {
+      free(frameOffsets);
+      frameOffsets = nullptr;
+    }
+    if (gifpackFile) {
+      gifpackFile.close();
+    }
+    gifpackActive = false;
+  }
+  
+  // 短暂延迟确保文件完全关闭
+  delay(20);
 }
 
 // 重排图片
@@ -460,6 +499,7 @@ String getImageFilename(uint8_t index) {
 
 // 清理旧文件
 void cleanupOldFiles() {
+  closeAllFiles();
   File root = LittleFS.open("/");
   if (!root || !root.isDirectory()) {
     Serial.println("无法打开根目录");
@@ -476,8 +516,7 @@ void cleanupOldFiles() {
     if (!file.isDirectory() && (
         filename.endsWith(".jpg") || 
         filename.endsWith(".png") || 
-        filename.endsWith(".gif") || 
-        filename.endsWith(".bin")
+        filename.endsWith(".gfp") 
     )) {
       // 使用文件上次修改时间作为年龄判断依据
       time_t fileTime = file.getLastWrite();

@@ -7,7 +7,6 @@
 #include <Wire.h>
 #include "CST816D.h"
 #include <TJpg_Decoder.h>
-#include <AnimatedGIF.h>
 #include <pngle.h>
 
 // 屏幕参数定义
@@ -26,7 +25,7 @@
 #define IMG_FORMAT_BIN  0x00  // 原始二进制格式（不再使用）
 #define IMG_FORMAT_JPEG 0x10  // JPEG格式
 #define IMG_FORMAT_PNG  0x20  // PNG格式
-#define IMG_FORMAT_GIF  0x30  // GIF格式
+#define IMG_FORMAT_GIFPACK  0x30  // GIFPack格式
 
 // 引脚定义
 #define TOUCH_SDA 4
@@ -45,12 +44,32 @@
 #define COLOR_MAGENTA   TFT_MAGENTA
 #define COLOR_YELLOW    TFT_YELLOW
 
+// GIFPack结构定义
+#define GIFPACK_MAGIC "GFPK"
+#define GIFPACK_VERSION 0x01
+
+//gifpack结构
+struct GIFPackHeader {
+    char magic[4];     // 魔术字节 "GFPK"
+    uint8_t version;   // 版本号
+    uint16_t frames;   // 帧数
+    uint8_t fps;       // 每秒帧数
+    uint16_t width;    // 宽度
+    uint16_t height;   // 高度
+    uint8_t reserved[4]; // 预留字节
+};
+
 // 全局变量声明
 extern TFT_eSPI tft;
 extern CST816D touch;
 extern int currentImage;
 extern int totalImages;
-extern AnimatedGIF gif;
+extern File gifpackFile;
+extern GIFPackHeader gifpackHeader;
+extern uint32_t* frameOffsets;
+extern int currentFrame;
+extern bool gifpackActive;
+extern unsigned long lastFrameTime;
 
 // 函数声明
 void setupDisplay();                                                  // 初始化显示模块
@@ -63,11 +82,8 @@ void drawText(const char* text, int x, int y, uint16_t color, uint8_t size = 1, 
 
 // 图像处理函数
 void displayImage(int index);                                         // 显示图片
-bool isGifPlaying();                                                 // 检查是否有GIF在播放
-void processGifAnimation();                                           // 处理GIF动画
 void checkGestures();                                                // 检查手势
 void setDisplayImage(uint8_t index);                                  // 设置显示图片
-
 // 格式相关函数
 uint8_t getFormatFromIndex(uint8_t index);                           // 解析图像格式
 uint8_t getFileIndexFromIndex(uint8_t index);                        // 解析文件索引
@@ -76,13 +92,14 @@ uint8_t combineFormatAndIndex(uint8_t format, uint8_t fileIndex);     // 组合�
 // 解码回调
 bool jpegOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap);   // JPEG解码回调
 void on_png_draw(pngle_t *pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t rgba[4]);// PNG解码回调（使用命名空间版本）
-void GIFDraw(GIFDRAW *pDraw);                                        // GIF解码回调
 
-// GIF文件回调
-void* GIFOpenFile(const char* fname, int32_t* pSize);                // GIF文件打开回调
-void GIFCloseFile(void* pHandle);                                    // GIF文件关闭回调
-int32_t GIFReadFile(GIFFILE* pFile, uint8_t* pBuf, int32_t iLen);    // GIF文件读取回调
-int32_t GIFSeekFile(GIFFILE* pFile, int32_t iPosition);              // GIF文件定位回调
+
+//GIF相关
+void processGifpackAnimation();
+bool isGifpackPlaying();
+bool openGifpack(const char* filename);
+bool showGifpackFrame();
+void closeGifpack();
 
 // 状态画面
 void showStartupScreen();                                            // 显示启动画面

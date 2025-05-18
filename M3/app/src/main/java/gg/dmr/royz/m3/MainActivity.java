@@ -262,8 +262,7 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
 
             // 如果是 GIF 格式
             if (formatType == FORMAT_GIF) {
-                Toast.makeText(this, "GIF功能还在开发QAQ~", Toast.LENGTH_LONG).show();
-                //showIndexSelectionDialogForGif(imageUri);
+                showIndexSelectionDialogForGif(imageUri);
                 return;
             }
 
@@ -310,7 +309,7 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                         targetIndex = (byte) (images != null ? images.size() : 0);
                     }
 
-                    // 直接上传GIF文件
+                    // 转换并上传GIF文件
                     viewModel.uploadGifFromUri(gifUri, targetIndex);
                 })
                 .setNegativeButton("取消", null)
