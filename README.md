@@ -2,7 +2,7 @@
 <p align="center">
 <img src="Images/APPScreenshot.jpg" width="200"></p>
 
-Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）开发板** 和 **Android 应用**，通过 BLE（蓝牙低功耗）实现无线传输和控制，支持 Android APP 上传、管理并切换显示表情。
+Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（触摸屏版）开发板** 和 **Android 应用**，通过 BLE（蓝牙低功耗）实现无线传输和控制，支持 Android APP 上传、管理并切换显示表情，滑动手势切换表情。
 
 ---
 
