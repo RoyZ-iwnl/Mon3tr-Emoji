@@ -442,16 +442,28 @@ void checkGestures() {
 
 // 设置显示图片
 void setDisplayImage(uint8_t index) {
-  if (index < totalImages) {
-    currentImage = index;
-    displayImage(currentImage);
-
-    // 发送成功响应
-    uint8_t payload[1] = { (uint8_t)currentImage };
-    sendResponse(CMD_SET_DISPLAY, RESP_SUCCESS, payload, 1);
-  } else {
-    sendResponse(CMD_SET_DISPLAY, RESP_PARAM_ERROR);
-  }
+    // 提取格式和实际索引
+    uint8_t format = getFormatFromIndex(index);
+    uint8_t fileIndex = getFileIndexFromIndex(index);
+    
+    // 在图片列表中查找匹配的图片
+    int foundIndex = -1;
+    for (int i = 0; i < totalImages; i++) {
+        if (imageList[i].format == format && imageList[i].fileIndex == fileIndex) {
+            foundIndex = i;
+            break;
+        }
+    }
+    
+    if (foundIndex >= 0) {
+        currentImage = foundIndex;
+        displayImage(currentImage);
+        // 发送成功响应，返回组合索引
+        uint8_t payload[1] = { index };
+        sendResponse(CMD_SET_DISPLAY, RESP_SUCCESS, payload, 1);
+    } else {
+        sendResponse(CMD_SET_DISPLAY, RESP_PARAM_ERROR);
+    }
 }
 
 // 显示启动画面 - 使用英文
