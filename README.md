@@ -2,7 +2,8 @@
 <p align="center">
 <img src="Images/APPScreenshot.jpg" width="200"></p>
 
-Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（触摸屏版）开发板** 和 **Android 应用**，通过 BLE（蓝牙低功耗）实现无线传输和控制，支持 Android APP 上传、管理并切换显示表情，滑动手势切换表情。
+Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（触摸屏版/[无触摸版](https://github.com/RoyZ-iwnl/Mon3tr-Emoji/tree/no-touch-support))
+开发板** 和 **Android 应用**，通过 BLE（蓝牙低功耗）实现无线传输和控制，支持 Android APP 上传、管理并切换显示表情，滑动手势切换表情，目前支持上传JPEG/GIF格式。
 
 ---
 
@@ -47,7 +48,6 @@ Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（�
      TFT_eSPI by Bodmer 2.5.43
      TJpg_Decoder by Bodmer 1.1.0
      AnimatedGIF by Larry 2.2.0
-     pngle by kikuchan 1.0.2
      ```
 4. 编辑 `libraries/TFT_eSPI/User_Setup.h`  
    **备份原文件**，用以下内容覆盖（仅适配 ESP32-2424S012 + GC9A01 屏）：
@@ -140,7 +140,7 @@ Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（�
 
 - 0x00：原始二进制（已弃用）
 - 0x10：JPEG
-- 0x20：PNG
+- 0x20：PNG（已弃用）
 - 0x30：GIF
 
 ### 6. 主要通信流程
@@ -186,7 +186,7 @@ Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（�
 
 ## TODO
 
-- [ ] GIF 动图完善和优化
+- [ ] 代码规整
 
 ---
 
@@ -194,6 +194,7 @@ Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（�
 
 - 感谢 [囧囧怪的WIFI版本开源项目](https://www.bilibili.com/video/BV1r3LczZE3N/#reply262992366736) 提供灵感  
   外壳 3D 打印建模和开发板购买可参考该视频
+- 感谢 [LYao2514](https://github.com/LYao2514)维护[无触摸分支](https://github.com/RoyZ-iwnl/Mon3tr-Emoji/tree/no-touch-support)
 - 没有Claude 就没有这个项目~
 ---
 
