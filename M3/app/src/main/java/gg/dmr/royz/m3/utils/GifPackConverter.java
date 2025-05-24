@@ -30,14 +30,14 @@ public class GifPackConverter {
     private static final int TARGET_WIDTH = 240;
     private static final int TARGET_HEIGHT = 240;
 
-    // 最大帧数限制（避免内存不足）
-    private static final int MAX_FRAMES = 200;
+    // 最大帧数量限制
+    private static final int MAX_FRAMES = 500;
 
     // 最大FPS限制
     private static final int MAX_FPS = 25;
 
     // 最小FPS限制
-    private static final int MIN_FPS = 5;
+    private static final int MIN_FPS = 15;
 
     /**
      * 将GIF文件转换为GifPack格式

@@ -1,9 +1,8 @@
-#include <Arduino.h>
+#include <LittleFS.h>
 #include "display_handler.h"
 #include "ble_handler.h"
 #include "file_system.h"
 #include "commands.h"
-
 
 // 最后检查时间
 unsigned long lastCheck = 0;
@@ -28,17 +27,18 @@ void setup() {
   // 初始化BLE
   setupBLE();
 
+  // 新增：额外延迟确保所有模块完全初始化
+  delay(1000);
+
   // 显示第一张图片或等待画面
   if (totalImages > 0) {
+    Serial.printf("发现 %d 张图片，显示第一张\n", totalImages);
     displayImage(currentImage);
   } else {
     showWaitingScreen();
   }
 
-  // 确保所有文件处于关闭状态
-  if (gifpackFile) {
-    gifpackFile.close();
-  }
+  // 只关闭非GIFPack文件，如果是GIFPack则保持打开状态
   if (currentImageFile) {
     currentImageFile.close();
   }
@@ -51,7 +51,6 @@ void handleSerialCommand() {
   if (Serial.available()) {
     String cmd = Serial.readStringUntil('\n');
     cmd.trim();  // 去除空格和换行符
-
     if (cmd == "log=1") {
       enableLogging = true;
       Serial.println("日志输出已开启");
@@ -81,7 +80,6 @@ void handleSerialCommand() {
   }
 }
 
-
 // 主循环
 void loop() {
   unsigned long now = millis();
@@ -91,7 +89,6 @@ void loop() {
     checkGestures();
     lastCheck = now;
   }
-
 
   // 2. 处理GIFPack动画
   if (isGifpackPlaying()) {
@@ -109,14 +106,22 @@ void loop() {
 
   // 短暂延迟，让ESP32有时间处理其他系统任务
   delay(1);
+
+  // 只在确实需要时才关闭文件
   static unsigned long lastFileCheck = 0;
-  if (millis() - lastFileCheck > 10000) {  // 每10秒检查一次
+  if (millis() - lastFileCheck > 30000) {  // 改为30秒检查一次，降低频率
     lastFileCheck = millis();
 
-    // 检查GIFPack文件是否应该关闭
+    // 只有在GIFPack未激活且文件打开时才关闭
     if (gifpackFile && !gifpackActive) {
-      Serial.println("检测到未关闭的GIFPack文件，关闭中...");
+      Serial.println("检测到未使用的GIFPack文件，关闭中...");
       gifpackFile.close();
+    }
+
+    // 内存使用情况检查
+    size_t freeHeap = ESP.getFreeHeap();
+    if (freeHeap < 10000) {  // 如果可用内存少于10KB
+      Serial.printf("警告：可用内存不足 %d 字节\n", freeHeap);
     }
   }
 }
