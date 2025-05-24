@@ -37,7 +37,7 @@ const char* getFormatName(uint8_t format) {
     case IMG_FORMAT_BIN: return "BIN";
     case IMG_FORMAT_JPEG: return "JPEG";
     case IMG_FORMAT_PNG: return "PNG";
-    case IMG_FORMAT_GIF: return "GIF";
+    case IMG_FORMAT_GIFPACK: return "GIFPACK";
     default: return "未知";
   }
 }
@@ -138,8 +138,6 @@ void processCommand(uint8_t* data, size_t length) {
 }
 
 // 发送命令响应
-// 修改 commands.cpp 中的 sendResponse 函数
-
 void sendResponse(uint8_t cmdId, uint8_t statusCode, uint8_t* payload, uint8_t payloadLength) {
   // 准备响应数据包
   // 最大负载是从 sendImageList 函数传入: 1 + MAX_IMAGES * 6 = 61 字节

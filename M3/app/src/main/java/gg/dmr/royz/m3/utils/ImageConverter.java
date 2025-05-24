@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
+import android.graphics.Paint;
 import android.net.Uri;
 import android.util.Log;
 
@@ -18,14 +19,15 @@ import java.io.InputStream;
 /**
  * 图片转换工具类
  * 负责将Bitmap调整为设备支持的格式和尺寸
+ * PNG格式会自动去除透明度转换为JPG处理
  */
 public class ImageConverter {
     private static final String TAG = "ImageConverter";
 
     // 图片格式常量，与ESP32的格式定义对应
-    public static final byte FORMAT_JPEG = 0x10;   // JPEG格式
-    public static final byte FORMAT_PNG = 0x20;    // PNG格式
-    public static final byte FORMAT_GIF = 0x30;    // GIF格式
+    public static final byte FORMAT_JPEG = 0x10; // JPEG格式
+    public static final byte FORMAT_PNG = 0x20; // PNG格式
+    public static final byte FORMAT_GIF = 0x30; // GIF格式
 
     // 目标尺寸
     public static final int TARGET_WIDTH = 240;
@@ -36,7 +38,7 @@ public class ImageConverter {
      * 保持原始GIF格式，不做转换
      *
      * @param context 上下文
-     * @param uri     图片Uri
+     * @param uri 图片Uri
      * @return GIF文件的原始字节数据，如果不是GIF文件则返回null
      */
     public static byte[] loadGifFromUri(Context context, Uri uri) {
@@ -95,7 +97,6 @@ public class ImageConverter {
             // 记录GIF文件信息
             LogUtil.log("读取GIF文件成功: " + gifData.length + " 字节");
             return gifData;
-
         } catch (Exception e) {
             LogUtil.logError("处理GIF文件失败: " + e.getMessage());
             return null;
@@ -109,11 +110,10 @@ public class ImageConverter {
         }
     }
 
-
     /**
      * 将Bitmap转换为JPEG格式
      *
-     * @param bitmap  源Bitmap
+     * @param bitmap 源Bitmap
      * @param quality JPEG压缩质量(0-100)
      * @return JPEG格式的字节数组
      */
@@ -137,10 +137,11 @@ public class ImageConverter {
 
     /**
      * 从Uri加载图片并调整大小为240x240
+     * PNG图片会自动去除透明度（透明部分变为黑色）
      *
      * @param context 上下文
-     * @param uri     图片Uri
-     * @return 调整大小后的Bitmap
+     * @param uri 图片Uri
+     * @return 调整大小后的Bitmap（PNG已去除透明度）
      */
     public static Bitmap loadImageFromUri(Context context, Uri uri) {
         try {
@@ -166,9 +167,23 @@ public class ImageConverter {
                 return null;
             }
 
-            // 调整大小并居中裁剪
-            return resizeBitmap(originalBitmap, TARGET_WIDTH, TARGET_HEIGHT);
+            // 检查是否为PNG格式，如果是则去除透明度
+            byte formatType = getFormatType(context, uri);
+            Bitmap processedBitmap;
 
+            if (formatType == FORMAT_PNG) {
+                LogUtil.log("检测到PNG格式，正在去除透明度...");
+                processedBitmap = removeTransparency(originalBitmap);
+                // 回收原图
+                if (processedBitmap != originalBitmap) {
+                    originalBitmap.recycle();
+                }
+            } else {
+                processedBitmap = originalBitmap;
+            }
+
+            // 调整大小并居中裁剪
+            return resizeBitmap(processedBitmap, TARGET_WIDTH, TARGET_HEIGHT);
         } catch (Exception e) {
             LogUtil.logError("加载图片失败: " + e.getMessage());
             return null;
@@ -176,10 +191,35 @@ public class ImageConverter {
     }
 
     /**
+     * 去除PNG图片的透明度，透明部分填充为黑色
+     *
+     * @param bitmap 原始PNG Bitmap
+     * @return 去除透明度后的Bitmap
+     */
+    private static Bitmap removeTransparency(Bitmap bitmap) {
+        if (bitmap == null) return null;
+
+        // 创建新的Bitmap，不包含Alpha通道
+        Bitmap result = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.RGB_565);
+        Canvas canvas = new Canvas(result);
+
+        // 先填充黑色背景
+        canvas.drawColor(Color.BLACK);
+
+        // 然后绘制原图
+        Paint paint = new Paint();
+        paint.setAntiAlias(true);
+        canvas.drawBitmap(bitmap, 0, 0, paint);
+
+        LogUtil.log("PNG透明度已去除，转换为不透明图片");
+        return result;
+    }
+
+    /**
      * 调整图片尺寸并居中裁剪，保持目标宽高比
      *
-     * @param bitmap       原始图片
-     * @param targetWidth  目标宽度
+     * @param bitmap 原始图片
+     * @param targetWidth 目标宽度
      * @param targetHeight 目标高度
      * @return 调整后的图片
      */
@@ -226,14 +266,13 @@ public class ImageConverter {
      * 获取图片格式类型
      *
      * @param context 上下文
-     * @param uri     图片的 URI
+     * @param uri 图片的 URI
      * @return 图片格式类型
      */
     public static byte getFormatType(Context context, Uri uri) {
         try {
             // 获取文件的 MIME 类型
             String mimeType = context.getContentResolver().getType(uri);
-
             if (mimeType == null) {
                 return FORMAT_JPEG; // 如果无法获取类型，默认使用 JPEG
             }

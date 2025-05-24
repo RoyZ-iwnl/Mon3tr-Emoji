@@ -19,6 +19,7 @@ import gg.dmr.royz.m3.bluetooth.CommandHandler;
 import gg.dmr.royz.m3.bluetooth.Constants;
 import gg.dmr.royz.m3.model.DeviceImage;
 import gg.dmr.royz.m3.model.DeviceStatus;
+import gg.dmr.royz.m3.utils.GifPackConverter;
 import gg.dmr.royz.m3.utils.ImageConverter;
 import gg.dmr.royz.m3.utils.LogUtil;
 
@@ -41,7 +42,6 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
     // 构造函数
     public MainViewModel(@NonNull Application application) {
         super(application);
-
         // 初始化蓝牙管理器
         bleManager = BleManager.getInstance(application);
         bleManager.setCallback(this);
@@ -154,50 +154,31 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
     }
 
     /**
-     * 上传图片
-     * @param bitmap 图片位图
+     * 上传图片 - 简化版本，统一转换为JPG格式
+     * @param bitmap 图片位图（PNG已在ImageConverter中去除透明度）
      * @param targetIndex 目标索引
-     * @param format 图片格式 ("JPG", "PNG", "GIF")
      */
-    public void uploadImage(Bitmap bitmap, byte targetIndex, String format) {
+    public void uploadImage(Bitmap bitmap, byte targetIndex) {
         if (bleManager.getState() != BleManager.State.CONNECTED) {
             LogUtil.logError("设备未连接，无法上传图片");
             return;
         }
 
-        LogUtil.log("准备上传" + format + "格式图片到索引: " + targetIndex);
+        LogUtil.log("准备上传JPG格式图片到索引: " + targetIndex);
         isTransferring.setValue(true);
         transferProgress.setValue(0);
 
-        byte[] imageData;
-        // 根据格式确定格式标识
-        byte formatId;
+        // 统一转换为JPG格式
+        byte[] imageData = ImageConverter.convertBitmapToJpeg(bitmap, 85);
+        byte formatId = 0x10; // JPG格式标识
 
-        if (format.equalsIgnoreCase("PNG")) {
-            // PNG格式
-            imageData = ImageConverter.convertBitmapToPng(bitmap);
-            formatId = 0x20;
-        } else if (format.equalsIgnoreCase("GIF")) {
-            // GIF格式 - 通知用户限制
-            //Toast.makeText(getApplication(), "GIF功能仅支持上传已有的GIF文件", Toast.LENGTH_LONG).show();
-            //LogUtil.logError("GIF转换不支持，无法从位图生成GIF");
-            //isTransferring.setValue(false);
-            return;
-        } else {
-            // 默认使用JPEG
-            imageData = ImageConverter.convertBitmapToJpeg(bitmap, 85);
-            formatId = 0x10;
-        }
-
-        LogUtil.log("图片转换完成，格式: " + format + "，数据大小: " + imageData.length + " 字节");
+        LogUtil.log("图片转换完成，格式: JPG，数据大小: " + imageData.length + " 字节");
 
         // 确保目标索引只使用低4位
         byte actualIndex = (byte)(targetIndex & 0x0F);
-        // 组合格式和索引
-        byte combinedIndex = (byte)(formatId | actualIndex);
 
         // 开始传输过程
-        // 1. 发送开始传输命令（使用组合索引）
+        // 1. 发送开始传输命令
         bleManager.startImageTransfer(actualIndex, formatId);
 
         // 2. 分包发送图片数据
@@ -212,10 +193,8 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
             @Override
             public void onComplete() {
                 LogUtil.log("图片数据传输完成");
-
                 // 3. 发送结束传输命令
                 bleManager.endImageTransfer();
-
                 // 4. 传输结束，刷新列表
                 isTransferring.setValue(false);
                 refreshImageList();
@@ -230,8 +209,7 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
     }
 
     /**
-     * 新增方法：直接从URI上传GIF文件
-     * 这个方法专门用于GIF文件的上传
+     * 上传GIF文件 - 保持原有逻辑不变
      */
     public void uploadGifFromUri(Uri gifUri, byte targetIndex) {
         if (bleManager.getState() != BleManager.State.CONNECTED) {
@@ -243,30 +221,50 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
         isTransferring.setValue(true);
         transferProgress.setValue(0);
 
-        // 加载GIF文件数据
-        byte[] gifData = ImageConverter.loadGifFromUri(getApplication(), gifUri);
-        if (gifData == null) {
-            LogUtil.logError("无法加载GIF文件");
-            isTransferring.setValue(false);
-            Toast.makeText(getApplication(), "GIF文件加载失败", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        // 首先检查文件类型
+        byte formatType = ImageConverter.getFormatType(getApplication(), gifUri);
 
-        LogUtil.log("GIF文件加载成功，大小: " + gifData.length + " 字节");
+        // 处理数据
+        byte[] dataToUpload;
+        byte formatId;
+
+        if (formatType == ImageConverter.FORMAT_GIF) {
+            // 如果是GIF格式，转换为GifPack格式
+            LogUtil.log("GIF文件检测到，正在转换为GifPack格式...");
+            dataToUpload = GifPackConverter.convertGifToGifPack(getApplication(), gifUri);
+            formatId = ImageConverter.FORMAT_GIF; // 0x30
+
+            if (dataToUpload == null) {
+                LogUtil.logError("GIF转换为GifPack失败");
+                isTransferring.setValue(false);
+                Toast.makeText(getApplication(), "GIF转换失败，请尝试其他GIF文件", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            LogUtil.log("GIF转换为GifPack成功，大小: " + dataToUpload.length + " 字节");
+        } else {
+            dataToUpload = ImageConverter.loadGifFromUri(getApplication(), gifUri);
+            formatId = ImageConverter.FORMAT_GIF; // 保持原来的0x30
+
+            if (dataToUpload == null) {
+                LogUtil.logError("GIF文件加载失败");
+                isTransferring.setValue(false);
+                Toast.makeText(getApplication(), "GIF文件加载失败", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            LogUtil.log("GIF文件加载成功，大小: " + dataToUpload.length + " 字节");
+        }
 
         // 确保目标索引只使用低4位
         byte actualIndex = (byte)(targetIndex & 0x0F);
-        // GIF格式ID为0x30
-        byte formatId = 0x30;
-        // 组合格式和索引
-        byte combinedIndex = (byte)(formatId | actualIndex);
 
         // 开始传输过程
         // 1. 发送开始传输命令
         bleManager.startImageTransfer(actualIndex, formatId);
 
-        // 2. 分包发送GIF数据
-        bleManager.sendImageData(gifData, new BleManager.TransferCallback() {
+        // 2. 分包发送数据
+        bleManager.sendImageData(dataToUpload, new BleManager.TransferCallback() {
             @Override
             public void onProgress(int current, int total) {
                 int progress = (int) ((current * 100.0) / total);
@@ -277,10 +275,8 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
             @Override
             public void onComplete() {
                 LogUtil.log("GIF数据传输完成");
-
                 // 3. 发送结束传输命令
                 bleManager.endImageTransfer();
-
                 // 4. 传输结束，刷新列表
                 isTransferring.setValue(false);
                 refreshImageList();
