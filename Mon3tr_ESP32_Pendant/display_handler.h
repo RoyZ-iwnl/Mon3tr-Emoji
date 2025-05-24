@@ -3,7 +3,7 @@
 
 #include <TFT_eSPI.h>
 #include <TJpg_Decoder.h>
-#include <pngle.h>
+//#include <pngle.h>
 #include <LittleFS.h>
 #include <WiFi.h>
 #include "CST816D.h"
@@ -24,7 +24,7 @@
 // 图像格式定义
 #define IMG_FORMAT_BIN 0x00      // 原始二进制格式（不再使用）
 #define IMG_FORMAT_JPEG 0x10     // JPEG格式
-#define IMG_FORMAT_PNG 0x20      // PNG格式
+#define IMG_FORMAT_PNG 0x20      // PNG格式（不再使用）
 #define IMG_FORMAT_GIFPACK 0x30  // GIFPack格式
 
 // 引脚定义
@@ -56,7 +56,7 @@ struct __attribute__((packed)) GIFPackHeader {
   uint8_t fps;        // 每秒帧数
   uint16_t width;     // 宽度（小端序）
   uint16_t height;    // 高度（小端序）
-  uint32_t reserved;  // 预留字节（改为uint32_t确保对齐）
+  uint32_t reserved;  // 预留字节uint32_t
 };
 
 // 全局变量声明
@@ -71,7 +71,7 @@ extern int currentFrame;
 extern bool gifpackActive;
 extern unsigned long lastFrameTime;
 
-// 新增：GFP专用帧缓冲
+// GFP专用帧缓冲
 extern uint16_t* gfpFrameBuffer;
 extern bool gfpBufferReady;
 
@@ -96,8 +96,8 @@ uint8_t combineFormatAndIndex(uint8_t format, uint8_t fileIndex);
 
 // 解码回调
 bool jpegOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap);
-bool gfpJpegOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap);  // 新增：GFP专用输出函数
-void on_png_draw(pngle_t* pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t rgba[4]);
+bool gfpJpegOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap);  // GFP专用输出函数
+//void on_png_draw(pngle_t* pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t rgba[4]);
 
 // GIF相关
 void processGifpackAnimation();
@@ -105,6 +105,9 @@ bool isGifpackPlaying();
 bool openGifpack(const char* filename);
 bool showGifpackFrame();
 void closeGifpack();
+// 内存管理函数
+bool ensureGfpBuffer();
+void releaseGfpBuffer();
 
 // 状态画面
 void showStartupScreen();

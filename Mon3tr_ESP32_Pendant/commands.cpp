@@ -138,8 +138,6 @@ void processCommand(uint8_t* data, size_t length) {
 }
 
 // 发送命令响应
-// 修改 commands.cpp 中的 sendResponse 函数
-
 void sendResponse(uint8_t cmdId, uint8_t statusCode, uint8_t* payload, uint8_t payloadLength) {
   // 准备响应数据包
   // 最大负载是从 sendImageList 函数传入: 1 + MAX_IMAGES * 6 = 61 字节

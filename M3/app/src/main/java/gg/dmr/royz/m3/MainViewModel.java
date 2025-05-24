@@ -42,7 +42,6 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
     // 构造函数
     public MainViewModel(@NonNull Application application) {
         super(application);
-
         // 初始化蓝牙管理器
         bleManager = BleManager.getInstance(application);
         bleManager.setCallback(this);
@@ -155,50 +154,31 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
     }
 
     /**
-     * 上传图片
-     * @param bitmap 图片位图
+     * 上传图片 - 简化版本，统一转换为JPG格式
+     * @param bitmap 图片位图（PNG已在ImageConverter中去除透明度）
      * @param targetIndex 目标索引
-     * @param format 图片格式 ("JPG", "PNG", "GIF")
      */
-    public void uploadImage(Bitmap bitmap, byte targetIndex, String format) {
+    public void uploadImage(Bitmap bitmap, byte targetIndex) {
         if (bleManager.getState() != BleManager.State.CONNECTED) {
             LogUtil.logError("设备未连接，无法上传图片");
             return;
         }
 
-        LogUtil.log("准备上传" + format + "格式图片到索引: " + targetIndex);
+        LogUtil.log("准备上传JPG格式图片到索引: " + targetIndex);
         isTransferring.setValue(true);
         transferProgress.setValue(0);
 
-        byte[] imageData;
-        // 根据格式确定格式标识
-        byte formatId;
+        // 统一转换为JPG格式
+        byte[] imageData = ImageConverter.convertBitmapToJpeg(bitmap, 85);
+        byte formatId = 0x10; // JPG格式标识
 
-        if (format.equalsIgnoreCase("PNG")) {
-            // PNG格式
-            imageData = ImageConverter.convertBitmapToPng(bitmap);
-            formatId = 0x20;
-        } else if (format.equalsIgnoreCase("GIF")) {
-            // GIF格式 - 通知用户限制
-            //Toast.makeText(getApplication(), "GIF功能仅支持上传已有的GIF文件", Toast.LENGTH_LONG).show();
-            //LogUtil.logError("GIF转换不支持，无法从位图生成GIF");
-            //isTransferring.setValue(false);
-            return;
-        } else {
-            // 默认使用JPEG
-            imageData = ImageConverter.convertBitmapToJpeg(bitmap, 85);
-            formatId = 0x10;
-        }
-
-        LogUtil.log("图片转换完成，格式: " + format + "，数据大小: " + imageData.length + " 字节");
+        LogUtil.log("图片转换完成，格式: JPG，数据大小: " + imageData.length + " 字节");
 
         // 确保目标索引只使用低4位
         byte actualIndex = (byte)(targetIndex & 0x0F);
-        // 组合格式和索引
-        byte combinedIndex = (byte)(formatId | actualIndex);
 
         // 开始传输过程
-        // 1. 发送开始传输命令（使用组合索引）
+        // 1. 发送开始传输命令
         bleManager.startImageTransfer(actualIndex, formatId);
 
         // 2. 分包发送图片数据
@@ -213,10 +193,8 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
             @Override
             public void onComplete() {
                 LogUtil.log("图片数据传输完成");
-
                 // 3. 发送结束传输命令
                 bleManager.endImageTransfer();
-
                 // 4. 传输结束，刷新列表
                 isTransferring.setValue(false);
                 refreshImageList();
@@ -231,7 +209,7 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
     }
 
     /**
-     * 修改后的 uploadGifFromUri 方法，用于处理 GIF 和 GifPack 格式
+     * 上传GIF文件 - 保持原有逻辑不变
      */
     public void uploadGifFromUri(Uri gifUri, byte targetIndex) {
         if (bleManager.getState() != BleManager.State.CONNECTED) {
@@ -280,8 +258,6 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
 
         // 确保目标索引只使用低4位
         byte actualIndex = (byte)(targetIndex & 0x0F);
-        // 组合格式和索引
-        byte combinedIndex = (byte)(formatId | actualIndex);
 
         // 开始传输过程
         // 1. 发送开始传输命令
@@ -299,10 +275,8 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
             @Override
             public void onComplete() {
                 LogUtil.log("GIF数据传输完成");
-
                 // 3. 发送结束传输命令
                 bleManager.endImageTransfer();
-
                 // 4. 传输结束，刷新列表
                 isTransferring.setValue(false);
                 refreshImageList();

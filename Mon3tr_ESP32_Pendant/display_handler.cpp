@@ -16,13 +16,15 @@ int currentFrame = 0;
 bool gifpackActive = false;
 unsigned long lastFrameTime = 0;
 
-// 新增：GFP专用帧缓冲
+// GFP专用帧缓冲
 uint16_t* gfpFrameBuffer = nullptr;
 bool gfpBufferReady = false;
 
+/*
 // PNGLE 解码相关变量
 static uint16_t png_line_buffer[SCREEN_WIDTH];  // 行缓冲区
 static uint32_t png_current_y = 0;              // 当前解码行
+*/
 
 // 屏幕参数定义
 #define SCREEN_WIDTH 240     // 屏幕宽度
@@ -53,7 +55,7 @@ void setupDisplay() {
   showStartupScreen();
 
   // 等待显示器完全初始化
-  delay(500);  // 新增：等待显示器稳定
+  delay(500);  // 等待显示器稳定
 
   // 打开背光
   digitalWrite(TFT_BL, HIGH);
@@ -155,7 +157,49 @@ bool jpegOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) 
   return true;
 }
 
-// 新增：GFP专用JPEG解码回调（写入帧缓冲）
+// 确保GFP帧缓冲可用
+bool ensureGfpBuffer() {
+  if (gfpFrameBuffer) {
+    return true;  // 已经存在
+  }
+
+  // 尝试分配GFP帧缓冲
+  Serial.println("尝试分配GFP帧缓冲...");
+  size_t bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT * 2;
+  size_t freeHeap = ESP.getFreeHeap();
+
+  Serial.printf("需要内存: %d字节, 可用内存: %d字节\n", bufferSize, freeHeap);
+
+  if (freeHeap < bufferSize + 10000) {  // 保留10KB余量
+    Serial.println("内存不足，无法分配GFP帧缓冲");
+    return false;
+  }
+
+  // 尝试多次分配，处理内存碎片化
+  for (int retry = 0; retry < 5; retry++) {
+    gfpFrameBuffer = (uint16_t*)malloc(bufferSize);
+    if (gfpFrameBuffer) {
+      Serial.printf("GFP帧缓冲分配成功(重试%d次)\n", retry);
+      return true;
+    }
+    Serial.printf("GFP帧缓冲分配失败，重试%d/5\n", retry + 1);
+    delay(10);  // 短暂延迟，让系统整理内存
+  }
+
+  Serial.println("GFP帧缓冲分配最终失败");
+  return false;
+}
+
+// 安全释放GFP帧缓冲
+void releaseGfpBuffer() {
+  if (gfpFrameBuffer) {
+    free(gfpFrameBuffer);
+    gfpFrameBuffer = nullptr;
+    Serial.println("GFP帧缓冲已释放");
+  }
+}
+
+// GFP专用JPEG解码回调（写入帧缓冲）
 bool gfpJpegOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) {
   if (!gfpFrameBuffer) return false;
 
@@ -172,9 +216,12 @@ bool gfpJpegOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitma
   return true;
 }
 
+/*
 // PNG 像素绘制回调
 void on_png_draw(pngle_t* pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t rgba[4]) {
+  // 严格的边界检查
   if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+  if (w == 0 || h == 0) return;
 
   // 处理透明度（简单阈值）
   if (rgba[3] < 128) return;  // 透明像素不绘制
@@ -182,16 +229,23 @@ void on_png_draw(pngle_t* pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h,
   // 转换为 RGB565
   uint16_t color = tft.color565(rgba[0], rgba[1], rgba[2]);
 
-  // 缓存当前行
+  // 如果是新的一行，先推送上一行
   if (y != png_current_y) {
     // 推送上一行数据
-    tft.pushImage(0, png_current_y, SCREEN_WIDTH, 1, png_line_buffer);
-    memset(png_line_buffer, 0, sizeof(png_line_buffer));  // 清空缓冲区
+    if (png_current_y < SCREEN_HEIGHT) {
+      tft.pushImage(0, png_current_y, SCREEN_WIDTH, 1, png_line_buffer);
+    }
+    // 清空缓冲区并更新行号
+    memset(png_line_buffer, 0, sizeof(png_line_buffer));
     png_current_y = y;
   }
 
-  png_line_buffer[x] = color;
+  // 确保x坐标在有效范围内
+  if (x < SCREEN_WIDTH) {
+    png_line_buffer[x] = color;
+  }
 }
+*/
 
 // 检查是否有GIFPack在播放
 bool isGifpackPlaying() {
@@ -303,6 +357,9 @@ void closeGifpack() {
   gifpackActive = false;
   gfpBufferReady = false;
 
+  // 等待当前帧处理完成
+  delay(20);
+
   if (frameOffsets) {
     free(frameOffsets);
     frameOffsets = nullptr;
@@ -310,11 +367,16 @@ void closeGifpack() {
 
   if (gifpackFile) {
     gifpackFile.close();
-    delay(10);  // 短暂延迟确保文件完全关闭
+    delay(10);
   }
+
+  // 注意：不在这里释放gfpFrameBuffer，因为可能会重新使用
+  // gfpFrameBuffer将在需要时在displayImage中管理
 
   Serial.println("GIFPack资源已关闭");
 }
+
+
 
 // 显示当前帧
 bool showGifpackFrame() {
@@ -388,39 +450,37 @@ bool showGifpackFrame() {
   // 恢复为普通JPEG回调
   TJpgDec.setCallback(jpegOutput);
 
-  Serial.printf("成功解码帧 %d/%d 到缓冲区\n", currentFrame + 1, gifpackHeader.frames);
+  //Serial.printf("成功解码帧 %d/%d 到缓冲区\n", currentFrame + 1, gifpackHeader.frames);
   return true;
 }
 
 // 处理GIFPack动画
 void processGifpackAnimation() {
-  if (!gifpackActive) {
+  // 严格状态检查
+  if (!gifpackActive || !gifpackFile || !frameOffsets || !gfpFrameBuffer) {
     return;
   }
 
   // 计算帧间隔时间
-  unsigned long frameInterval = 1000 / gifpackHeader.fps;  // 毫秒
+  unsigned long frameInterval = 1000 / gifpackHeader.fps;
   unsigned long currentTime = millis();
 
   // 检查是否到了播放下一帧的时间
   if (currentTime - lastFrameTime >= frameInterval) {
     // 如果当前帧缓冲准备就绪，显示它
-    if (gfpBufferReady) {
-      // 一次性推送整个帧缓冲到屏幕（减少撕裂）
+    if (gfpBufferReady && gifpackActive) {  // 双重检查
       tft.pushImage(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, gfpFrameBuffer);
       gfpBufferReady = false;
     }
 
     // 移动到下一帧
     currentFrame++;
-    // 如果播放完所有帧，重新开始
     if (currentFrame >= gifpackHeader.frames) {
       currentFrame = 0;
-      Serial.println("GIFPack播放完成，重新开始");
     }
 
     // 异步解码下一帧到缓冲区
-    if (!showGifpackFrame()) {
+    if (gifpackActive && !showGifpackFrame()) {
       Serial.println("播放GIFPack帧失败，重置");
       currentFrame = 0;
       // 尝试重新显示第一帧
@@ -440,9 +500,20 @@ void processGifpackAnimation() {
 void displayImage(int index) {
   Serial.printf("准备显示图片索引: %d\n", index);
 
-  // 关闭之前的GIFPack（如果有的话）
+  // 状态保护，确保安全关闭GIFPack
+  static bool isDisplaying = false;
+  if (isDisplaying) {
+    Serial.println("正在处理其他显示任务，跳过");
+    return;
+  }
+
+  isDisplaying = true;
+
+  // 安全关闭之前的GIFPack
   if (gifpackActive) {
+    Serial.println("安全关闭GIFPack...");
     closeGifpack();
+    delay(50);  // 确保关闭完成
   }
 
   // 清屏
@@ -453,73 +524,163 @@ void displayImage(int index) {
 
   // 根据文件扩展名确定格式
   if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
+    // JPEG格式 - 不需要特殊内存管理
     File f = LittleFS.open(filename, "r");
     if (f) {
       uint32_t fileSize = f.size();
-      uint8_t* buffer = (uint8_t*)malloc(fileSize);
-      if (buffer) {
-        f.read(buffer, fileSize);
-        TJpgDec.drawJpg(0, 0, buffer, fileSize);
-        free(buffer);
+      if (fileSize > 0 && fileSize < 100000) {
+        uint8_t* buffer = (uint8_t*)malloc(fileSize);
+        if (buffer) {
+          f.read(buffer, fileSize);
+          TJpgDec.drawJpg(0, 0, buffer, fileSize);
+          free(buffer);
+        } else {
+          Serial.println("JPEG缓冲区分配失败");
+          showErrorScreen("JPEG MEM ERROR");
+        }
+      } else {
+        Serial.printf("JPEG文件大小异常: %d\n", fileSize);
+        showErrorScreen("JPEG SIZE ERROR");
       }
       f.close();
+    } else {
+      Serial.println("JPEG文件打开失败");
+      showErrorScreen("JPEG OPEN FAIL");
     }
-  } else if (filename.endsWith(".png")) {
-    // PNG格式
+
+  } /*else if (filename.endsWith(".png")) {
+    Serial.println("开始PNG解码...");
+
+    // 检查内存状态，如果内存太少则跳过PNG处理
+    size_t freeHeap = ESP.getFreeHeap();
+    Serial.printf("PNG解码前可用内存: %d\n", freeHeap);
+
+    if (freeHeap < 80000) {
+      Serial.println("内存不足，无法解码PNG");
+      showErrorScreen("PNG MEM LOW");
+      isDisplaying = false;
+      return;
+    }
+
     File pngFile = LittleFS.open(filename, "r");
     if (pngFile) {
+      uint32_t fileSize = pngFile.size();
+      Serial.printf("PNG文件大小: %d, 可用内存: %d\n", fileSize, freeHeap);
+
+      // 创建PNG解码器，减少重试次数降低内存压力
       pngle_t* pngle = pngle_new();
-      pngle_set_draw_callback(pngle, on_png_draw);
-      uint8_t buffer[1024];
-      while (pngFile.available()) {
-        int bytesRead = pngFile.read(buffer, sizeof(buffer));
-        if (pngle_feed(pngle, buffer, bytesRead) < 0) {
-          Serial.println("PNG解码错误");
-          break;
+      if (pngle) {
+        Serial.println("PNG解码器创建成功");
+        pngle_set_draw_callback(pngle, on_png_draw);
+
+        // 重置PNG解码状态
+        png_current_y = 0;
+        memset(png_line_buffer, 0, sizeof(png_line_buffer));
+
+        // 使用更小的缓冲区减少内存压力
+        uint8_t buffer[128];  // 减小缓冲区从256到128
+        bool decodeSuccess = true;
+
+        while (pngFile.available() && decodeSuccess) {
+          int bytesRead = pngFile.read(buffer, sizeof(buffer));
+          if (pngle_feed(pngle, buffer, bytesRead) < 0) {
+            Serial.println("PNG解码错误");
+            decodeSuccess = false;
+            break;
+          }
+          // yield调用，防止看门狗重启
+          yield();
         }
+
+        // 推送最后一行（如果有）
+        if (decodeSuccess && png_current_y < SCREEN_HEIGHT) {
+          tft.pushImage(0, png_current_y, SCREEN_WIDTH, 1, png_line_buffer);
+        }
+
+        pngle_destroy(pngle);
+
+        if (!decodeSuccess) {
+          showErrorScreen("PNG DECODE ERR");
+        }
+      } else {
+        Serial.println("PNG解码器创建失败");
+        showErrorScreen("PNG MEM FRAGMENT");
       }
-      pngle_destroy(pngle);
       pngFile.close();
     } else {
       Serial.println("PNG文件打开失败");
       showErrorScreen("PNG OPEN FAIL");
     }
-  } else if (filename.endsWith(".gfp")) {
-    // GIFPack格式
+
+    // PNG处理完毕后，确保GFP缓冲区仍然可用
+    if (!gfpFrameBuffer) {
+      Serial.println("PNG处理后检测到GFP缓冲区丢失，重新分配");
+      gfpFrameBuffer = (uint16_t*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * 2);
+      if (gfpFrameBuffer) {
+        Serial.println("GFP帧缓冲重新分配成功");
+      } else {
+        Serial.println("警告：GFP帧缓冲重新分配失败");
+      }
+    }
+
+  } */
+  else if (filename.endsWith(".gfp")) {
+    // GIFPack格式 - 确保帧缓冲可用
     Serial.println("开始初始化GIFPack...");
 
-    // 新增：额外等待确保系统稳定
-    delay(100);
+    // 检查内存状态
+    size_t freeHeap = ESP.getFreeHeap();
+    if (freeHeap < 50000) {
+      Serial.printf("内存不足启动GIFPack: %d\n", freeHeap);
+      showErrorScreen("GFP MEM LOW");
+      isDisplaying = false;
+      return;
+    }
+
+    // 确保GFP帧缓冲存在，如果不存在则分配
+    if (!gfpFrameBuffer) {
+      Serial.println("GFP帧缓冲不存在，开始分配");
+      size_t bufferSize = SCREEN_WIDTH * SCREEN_HEIGHT * 2;
+
+      // 尝试分配，但不要多次重试，避免进一步碎片化
+      gfpFrameBuffer = (uint16_t*)malloc(bufferSize);
+      if (!gfpFrameBuffer) {
+        Serial.printf("GFP帧缓冲分配失败，需要%d字节，可用%d字节\n", bufferSize, freeHeap);
+        showErrorScreen("GFP BUF FAIL");
+        isDisplaying = false;
+        return;
+      }
+      Serial.println("GFP帧缓冲分配成功");
+    } else {
+      Serial.println("GFP帧缓冲已存在，直接使用");
+    }
+
+    delay(100);  // 确保系统稳定
 
     if (openGifpack(filename.c_str())) {
-      // 显示第一帧
       if (!showGifpackFrame()) {
         Serial.println("显示GIFPack第一帧失败");
         showErrorScreen("GFP PLAY ERROR FF");
         closeGifpack();
       } else {
         Serial.println("GIFPack初始化成功，开始播放");
-        // 新增：立即显示第一帧
         if (gfpBufferReady) {
           tft.pushImage(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, gfpFrameBuffer);
           gfpBufferReady = false;
         }
-
-        // 新增：确保GIFPack状态保持激活
-        Serial.printf("GIFPack状态检查: gifpackActive=%s, gifpackFile已打开=%s\n",
-                      gifpackActive ? "true" : "false",
-                      gifpackFile ? "true" : "false");
       }
     } else {
       Serial.println("GIFPack初始化失败");
       showErrorScreen("GFP INIT FAIL");
     }
+
   } else {
     Serial.printf("不支持的文件格式: %s\n", filename.c_str());
     showErrorScreen("UNSUPPORTED FORMAT");
   }
 
   Serial.println("图片显示完成");
+  isDisplaying = false;
 }
 
 // 检查手势

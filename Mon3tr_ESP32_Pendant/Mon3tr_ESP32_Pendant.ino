@@ -27,7 +27,7 @@ void setup() {
   // 初始化BLE
   setupBLE();
 
-  // 新增：额外延迟确保所有模块完全初始化
+  // 额外延迟确保所有模块完全初始化
   delay(1000);
 
   // 显示第一张图片或等待画面
@@ -38,13 +38,14 @@ void setup() {
     showWaitingScreen();
   }
 
-  // 只关闭非GIFPack文件，如果是GIFPack则保持打开状态
-  if (currentImageFile) {
-    currentImageFile.close();
-  }
+  // 移除有问题的文件关闭代码
+  // if (currentImageFile) {
+  //     currentImageFile.close();
+  // }
 
   Serial.println("初始化完成");
 }
+
 
 // 处理串口命令
 void handleSerialCommand() {

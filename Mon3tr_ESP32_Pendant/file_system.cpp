@@ -1,7 +1,7 @@
 #include "file_system.h"
 #include "commands.h"
 #include "display_handler.h"
-#include "ble_handler.h" // 添加这行以引入sendResponse的声明
+#include "ble_handler.h" // 引入sendResponse的声明
 
 // 全局变量定义
 ImageInfo imageList[MAX_IMAGES];
@@ -152,7 +152,7 @@ void loadImageOrder() {
     // 读取文件名
     char nameBuffer[32];
     if (file.read((uint8_t*)nameBuffer, nameLen) != nameLen) break;
-    nameBuffer[nameLen] = 0; // 添加字符串结束符
+    nameBuffer[nameLen] = 0; // 字符串结束符
     
     // 读取格式和索引
     uint8_t format;

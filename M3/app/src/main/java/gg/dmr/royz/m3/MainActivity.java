@@ -1,14 +1,10 @@
 package gg.dmr.royz.m3;
 
-
-import static gg.dmr.royz.m3.utils.ImageConverter.FORMAT_JPEG;
-import static gg.dmr.royz.m3.utils.ImageConverter.FORMAT_PNG;
 import static gg.dmr.royz.m3.utils.ImageConverter.FORMAT_GIF;
 import static gg.dmr.royz.m3.utils.ImageConverter.getFormatType;
 
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -38,7 +34,6 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -151,7 +146,6 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         // 观察图片列表
         viewModel.getImageList().observe(this, images -> {
             imageAdapter.setImageList(images);
-
             // 更新当前显示的图片
             DeviceStatus status = viewModel.getDeviceStatus().getValue();
             if (status != null) {
@@ -184,7 +178,6 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
 
     private void updateConnectionStatus(BleManager.State state) {
         String statusText;
-
         switch (state) {
             case CONNECTED:
                 statusText = "已连接";
@@ -205,7 +198,6 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                 statusText = "未连接";
                 break;
         }
-
         connectionStatusView.setText(statusText);
     }
 
@@ -223,7 +215,6 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
 
     private void onConnectButtonClick() {
         BleManager.State state = viewModel.getConnectionState().getValue();
-
         if (state == BleManager.State.CONNECTED) {
             // 已连接，断开连接
             viewModel.disconnect();
@@ -241,7 +232,6 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
 
     private void onDisplayButtonClick() {
         List<DeviceImage> selectedImages = imageAdapter.getSelectedImages();
-
         if (selectedImages.size() == 1) {
             viewModel.setDisplayImage(selectedImages.get(0).getIndex());
             imageAdapter.clearSelection();
@@ -255,6 +245,7 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         viewModel.refreshDeviceStatus();
     }
 
+    // 处理图片选择 - 简化后的版本，自动根据格式处理
     private void handleImageSelection(Uri imageUri) {
         try {
             // 获取图片格式类型
@@ -266,7 +257,7 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                 return;
             }
 
-            // 非 GIF 格式的处理
+            // 非 GIF 格式的处理（PNG和JPG都转换为Bitmap，PNG会自动去除透明度）
             Bitmap bitmap = ImageConverter.loadImageFromUri(this, imageUri);
             if (bitmap == null) {
                 LogUtil.logError("加载图片失败");
@@ -274,21 +265,19 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                 return;
             }
 
-            // 询问用户要上传到哪个索引位置和格式
-            showIndexAndFormatSelectionDialog(bitmap);
-
+            // 直接询问用户要上传到哪个索引位置
+            showIndexSelectionDialog(bitmap);
         } catch (Exception e) {
             LogUtil.logError("处理图片失败: " + e.getMessage());
             Toast.makeText(this, "处理图片失败", Toast.LENGTH_SHORT).show();
         }
     }
 
-    // 为GIF文件添加专门的索引选择对话框
+    // 为GIF文件显示索引选择对话框
     private void showIndexSelectionDialogForGif(final Uri gifUri) {
         // 构建索引列表
         List<DeviceImage> images = viewModel.getImageList().getValue();
         final List<String> options = new ArrayList<>();
-
         if (images != null) {
             for (DeviceImage image : images) {
                 options.add("替换图片 " + image.getIndex() +
@@ -316,18 +305,17 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                 .show();
     }
 
-    private void showIndexAndFormatSelectionDialog(final Bitmap bitmap) {
-        // 首先选择索引位置
+    // 为普通图片（JPG/PNG）显示索引选择对话框
+    private void showIndexSelectionDialog(final Bitmap bitmap) {
+        // 构建索引列表
         List<DeviceImage> images = viewModel.getImageList().getValue();
         final List<String> indexOptions = new ArrayList<>();
-
         if (images != null) {
             for (DeviceImage image : images) {
                 indexOptions.add("替换图片 " + image.getIndex() +
                         (image.getName().isEmpty() ? "" : " (" + image.getName() + ")"));
             }
         }
-
         // 添加新图片选项
         indexOptions.add("添加为新图片");
 
@@ -335,7 +323,6 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                 .setTitle("选择图片位置")
                 .setItems(indexOptions.toArray(new String[0]), (dialog, which) -> {
                     byte targetIndex;
-
                     if (which < indexOptions.size() - 1) {
                         // 替换现有图片
                         targetIndex = images != null ? images.get(which).getIndex() : 0;
@@ -344,91 +331,8 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                         targetIndex = (byte) (images != null ? images.size() : 0);
                     }
 
-                    // 然后选择格式
-                    showFormatSelectionDialog(bitmap, targetIndex);
-                })
-                .setNegativeButton("取消", null)
-                .show();
-    }
-
-    private void showFormatSelectionDialog(final Bitmap bitmap, final byte targetIndex) {
-        final String[] formats = {"JPEG (推荐)", "PNG"};//, "GIF (需要选择GIF文件)"};
-        //数组0开始计数所以PNG是case1
-
-        new AlertDialog.Builder(this)
-                .setTitle("选择图片格式")
-                .setItems(formats, (dialog, which) -> {
-                    String format;
-                    switch (which) {
-                        case 1:
-                            format = "PNG";
-                            viewModel.uploadImage(bitmap, targetIndex, format);
-                            break;
-                        /*case 2:
-                            format = "GIF";
-                            // 对于GIF格式，需要单独选择GIF文件
-                            chooseGifFile(targetIndex);
-                            break;*/
-                        default:
-                            format = "JPG";
-                            viewModel.uploadImage(bitmap, targetIndex, format);
-                            break;
-                    }
-                })
-                .setNegativeButton("取消", null)
-                .show();
-    }
-    private void chooseGifFile(byte targetIndex) {
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("image/gif");
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-
-        // 使用新的launcher处理GIF文件选择结果
-        ActivityResultLauncher<Intent> gifPickerLauncher =
-                registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                        Uri gifUri = result.getData().getData();
-                        if (gifUri != null) {
-                            // 直接传递URI给ViewModel处理
-                            viewModel.uploadGifFromUri(gifUri, targetIndex);
-                        }
-                    }
-                });
-
-        try {
-            gifPickerLauncher.launch(Intent.createChooser(intent, "选择GIF文件"));
-        } catch (android.content.ActivityNotFoundException ex) {
-            Toast.makeText(this, "请安装文件管理器应用", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void showIndexSelectionDialog(final Bitmap bitmap) {
-        // 构建索引列表（原逻辑保留）
-        List<DeviceImage> images = viewModel.getImageList().getValue();
-        final List<String> options = new ArrayList<>();
-
-        if (images != null) {
-            for (DeviceImage image : images) {
-                options.add("替换图片 " + image.getIndex() +
-                        (image.getName().isEmpty() ? "" : " (" + image.getName() + ")"));
-            }
-        }
-        options.add("添加为新图片");
-
-        // 显示位置选择对话框
-        new AlertDialog.Builder(this)
-                .setTitle("选择图片位置")
-                .setItems(options.toArray(new String[0]), (dialog, which) -> {
-                    // 确定目标索引
-                    byte targetIndex;
-                    if (which < options.size() - 1) {
-                        targetIndex = images != null ? images.get(which).getIndex() : 0;
-                    } else {
-                        targetIndex = (byte) (images != null ? images.size() : 0);
-                    }
-
-                    // 选择位置后弹出格式选择对话框
-                    showFormatSelectionDialog(bitmap, targetIndex);
+                    // 直接上传为JPG格式（PNG已在ImageConverter中转换为无透明度的Bitmap）
+                    viewModel.uploadImage(bitmap, targetIndex);
                 })
                 .setNegativeButton("取消", null)
                 .show();
@@ -447,7 +351,6 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                 // 获取拖动的起始和目标位置
                 int fromPosition = viewHolder.getAdapterPosition();
                 int toPosition = target.getAdapterPosition();
-
                 // 更新适配器
                 imageAdapter.swapItems(fromPosition, toPosition);
                 return true;
@@ -467,7 +370,6 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
             public void clearView(@NonNull RecyclerView recyclerView,
                                   @NonNull RecyclerView.ViewHolder viewHolder) {
                 super.clearView(recyclerView, viewHolder);
-
                 // 拖动结束，提交重排序命令
                 if (imageAdapter.isDragEnabled()) {
                     byte[] newOrder = imageAdapter.getReorderedIndices();
@@ -485,7 +387,6 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
     public void onItemLongClick(int position, DeviceImage image) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("图片操作");
-
         String[] options = {"删除图片", "开始拖拽排序", "取消"};
 
         builder.setItems(options, (dialog, which) -> {
@@ -500,11 +401,9 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                             .setNegativeButton("取消", null)
                             .show();
                     break;
-
                 case 1: // 开始拖拽排序
                     imageAdapter.enableDrag(true);
                     Toast.makeText(this, "拖拽模式已开启，长按图片拖动排序", Toast.LENGTH_SHORT).show();
-
                     // 添加完成按钮到工具栏
                     getSupportActionBar().setTitle("拖拽排序模式");
                     getSupportActionBar().setDisplayHomeAsUpEnabled(true);
@@ -518,13 +417,11 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                         toolbar.setNavigationOnClickListener(null);
                     });
                     break;
-
                 case 2: // 取消
                     dialog.dismiss();
                     break;
             }
         });
-
         builder.show();
     }
 
@@ -538,7 +435,6 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
     private void checkBluetoothPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             boolean allGranted = true;
-
             for (String permission : BLUETOOTH_PERMISSIONS) {
                 if (ContextCompat.checkSelfPermission(this, permission) !=
                         PackageManager.PERMISSION_GRANTED) {
@@ -587,10 +483,8 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
         if (requestCode == REQUEST_BLUETOOTH_PERMISSIONS) {
             boolean allGranted = true;
-
             for (int result : grantResults) {
                 if (result != PackageManager.PERMISSION_GRANTED) {
                     allGranted = false;
