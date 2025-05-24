@@ -173,78 +173,98 @@ bool isGifpackPlaying() {
 
 // 打开GIFPack文件
 bool openGifpack(const char* filename) {
-  // 如果有正在播放的GIFPack，先关闭
-  if (gifpackActive) {
-    gifpackActive = false;  // 先设置标志，防止其他线程访问
-    
-    if (frameOffsets) {
-      free(frameOffsets);
-      frameOffsets = nullptr;
+    // 如果有正在播放的GIFPack，先关闭
+    if (gifpackActive) {
+        closeGifpack();
     }
-    
-    if (gifpackFile) {
-      gifpackFile.close();
+
+    // 打开文件
+    gifpackFile = LittleFS.open(filename, "r");
+    if (!gifpackFile) {
+        Serial.println("打开GIFPack文件失败");
+        return false;
     }
+
+    // 读取头信息
+    size_t headerSize = sizeof(GIFPackHeader);
+    size_t bytesRead = gifpackFile.read((uint8_t*)&gifpackHeader, headerSize);
+    if (bytesRead != headerSize) {
+        Serial.printf("读取GIFPack头信息失败: 请求%d字节, 只读取到%d字节\n", headerSize, bytesRead);
+        gifpackFile.close();
+        return false;
+    }
+
+    // 检查魔术字节
+    if (memcmp(gifpackHeader.magic, GIFPACK_MAGIC, 4) != 0 || gifpackHeader.version != GIFPACK_VERSION) {
+        Serial.println("无效的GIFPack格式");
+        Serial.printf("魔术字节: %c%c%c%c, 版本: %d\n", 
+                     gifpackHeader.magic[0], gifpackHeader.magic[1], 
+                     gifpackHeader.magic[2], gifpackHeader.magic[3], 
+                     gifpackHeader.version);
+        gifpackFile.close();
+        return false;
+    }
+
+    Serial.printf("GIFPack信息: %d帧, %dfps, %dx%d\n",
+                  gifpackHeader.frames, gifpackHeader.fps,
+                  gifpackHeader.width, gifpackHeader.height);
+
+    // 检查参数合理性
+    if (gifpackHeader.frames == 0 || gifpackHeader.frames > 500 || 
+        gifpackHeader.width != 240 || gifpackHeader.height != 240) {
+        Serial.println("GIFPack参数不合理");
+        gifpackFile.close();
+        return false;
+    }
+
+    // 检查可用内存
+    size_t offsetArraySize = sizeof(uint32_t) * gifpackHeader.frames;
+    size_t freeHeap = ESP.getFreeHeap();
+    Serial.printf("需要内存: %d字节, 可用内存: %d字节\n", offsetArraySize, freeHeap);
     
-    // 短暂延迟确保文件完全关闭
-    delay(10);
-  }
-  
-  // 确保文件变量为初始状态
-  gifpackFile = File();
-  
-  // 打开文件
-  gifpackFile = LittleFS.open(filename, "r");
-  if (!gifpackFile) {
-    Serial.println("打开GIFPack文件失败");
-    return false;
-  }
-  
-  // 读取头信息
-  size_t headerSize = sizeof(GIFPackHeader);
-  size_t bytesRead = gifpackFile.read((uint8_t*)&gifpackHeader, headerSize);
-  if (bytesRead != headerSize) {
-    Serial.printf("读取GIFPack头信息失败: 请求%d字节, 只读取到%d字节\n", 
-                  headerSize, bytesRead);
-    gifpackFile.close();
-    return false;
-  }
-  
-  // 检查魔术字节
-  if (memcmp(gifpackHeader.magic, GIFPACK_MAGIC, 4) != 0 || gifpackHeader.version != GIFPACK_VERSION) {
-    Serial.println("无效的GIFPack格式");
-    gifpackFile.close();
-    return false;
-  }
-  
-  Serial.printf("GIFPack信息: %d帧, %dfps, %dx%d\n", 
-                gifpackHeader.frames, gifpackHeader.fps, 
-                gifpackHeader.width, gifpackHeader.height);
-  
-  // 分配帧偏移量数组内存
-  frameOffsets = (uint32_t*)malloc(sizeof(uint32_t) * gifpackHeader.frames);
-  if (!frameOffsets) {
-    Serial.println("内存分配失败");
-    gifpackFile.close();
-    return false;
-  }
-  
-  // 读取帧偏移量
-  if (gifpackFile.read((uint8_t*)frameOffsets, sizeof(uint32_t) * gifpackHeader.frames) 
-      != sizeof(uint32_t) * gifpackHeader.frames) {
-    Serial.println("读取帧偏移量失败");
-    free(frameOffsets);
-    frameOffsets = nullptr;
-    gifpackFile.close();
-    return false;
-  }
-  
-  currentFrame = 0;
-  gifpackActive = true;
-  lastFrameTime = millis();
-  
-  return true;
+    if (offsetArraySize > (freeHeap / 2)) { // 保留一半内存给其他用途
+        Serial.println("内存不足，无法分配帧偏移量数组");
+        gifpackFile.close();
+        return false;
+    }
+
+    // 分配帧偏移量数组内存
+    frameOffsets = (uint32_t*)malloc(offsetArraySize);
+    if (!frameOffsets) {
+        Serial.println("内存分配失败");
+        gifpackFile.close();
+        return false;
+    }
+
+    // 读取帧偏移量
+    if (gifpackFile.read((uint8_t*)frameOffsets, offsetArraySize) != offsetArraySize) {
+        Serial.println("读取帧偏移量失败");
+        free(frameOffsets);
+        frameOffsets = nullptr;
+        gifpackFile.close();
+        return false;
+    }
+
+    // 验证偏移量合理性
+    uint32_t fileSize = gifpackFile.size();
+    for (int i = 0; i < gifpackHeader.frames; i++) {
+        if (frameOffsets[i] >= fileSize) {
+            Serial.printf("帧%d偏移量%d超出文件大小%d\n", i, frameOffsets[i], fileSize);
+            free(frameOffsets);
+            frameOffsets = nullptr;
+            gifpackFile.close();
+            return false;
+        }
+    }
+
+    currentFrame = 0;
+    gifpackActive = true;
+    lastFrameTime = millis();
+    
+    Serial.println("GIFPack初始化成功");
+    return true;
 }
+
 
 // 安全关闭GIFPack资源
 void closeGifpack() {

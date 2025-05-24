@@ -253,9 +253,8 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
         if (formatType == ImageConverter.FORMAT_GIF) {
             // 如果是GIF格式，转换为GifPack格式
             LogUtil.log("GIF文件检测到，正在转换为GifPack格式...");
-
             dataToUpload = GifPackConverter.convertGifToGifPack(getApplication(), gifUri);
-            formatId = ImageConverter.FORMAT_GIF; // 0x40
+            formatId = ImageConverter.FORMAT_GIF; // 0x30
 
             if (dataToUpload == null) {
                 LogUtil.logError("GIF转换为GifPack失败");
@@ -266,7 +265,6 @@ public class MainViewModel extends AndroidViewModel implements BleManager.BleCal
 
             LogUtil.log("GIF转换为GifPack成功，大小: " + dataToUpload.length + " 字节");
         } else {
-            // 非GIF格式或已是GifPack格式，直接加载
             dataToUpload = ImageConverter.loadGifFromUri(getApplication(), gifUri);
             formatId = ImageConverter.FORMAT_GIF; // 保持原来的0x30
 
