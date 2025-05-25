@@ -25,6 +25,7 @@ extern bool isTransferring;
 extern int totalBytesReceived;
 
 // 函数声明
+void closeAllFiles();
 void setupFileSystem();
 void updateImageList();
 void loadImageOrder();
