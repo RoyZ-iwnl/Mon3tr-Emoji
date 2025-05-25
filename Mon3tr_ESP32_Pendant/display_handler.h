@@ -5,7 +5,6 @@
 #include <TJpg_Decoder.h>
 //#include <pngle.h>
 #include <LittleFS.h>
-#include <WiFi.h>
 #include "CST816D.h"
 #include <Wire.h>
 
