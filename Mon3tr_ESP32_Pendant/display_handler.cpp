@@ -5,7 +5,8 @@
 
 // 全局变量定义
 TFT_eSPI tft = TFT_eSPI();
-CST816D touch(TOUCH_SDA, TOUCH_SCL, TOUCH_RST, TOUCH_INT);
+// 修改处
+//CST816D touch(TOUCH_SDA, TOUCH_SCL, TOUCH_RST, TOUCH_INT);
 int currentImage = 0;
 int totalImages = 0;
 unsigned long lastTapTime = 0;
@@ -52,7 +53,9 @@ void setupDisplay() {
   Serial.println("显示屏初始化完成");
 }
 
+// 修改处
 // 初始化触摸模块
+/*
 void setupTouch() {
   Serial.println("初始化触摸...");
 
@@ -69,6 +72,7 @@ void setupTouch() {
     delay(100);
   }
 }
+*/
 
 // 控制背光
 void controlBacklight(bool on) {
