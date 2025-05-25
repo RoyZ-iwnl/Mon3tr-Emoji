@@ -412,7 +412,9 @@ void processGifAnimation() {
     }
 }
 
+// 修改处
 // 检查手势
+/*
 void checkGestures() {
   uint16_t touchX, touchY;
   uint8_t gesture;
@@ -444,6 +446,7 @@ void checkGestures() {
   }
 }
 
+*/
 // 设置显示图片
 void setDisplayImage(uint8_t index) {
     // 提取格式和实际索引
