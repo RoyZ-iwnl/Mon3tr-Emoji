@@ -5,7 +5,8 @@
 #include <TFT_eSPI.h>
 #include <SPI.h>
 #include <Wire.h>
-#include "CST816D.h"
+// 修改处
+//#include "CST816D.h"
 #include <TJpg_Decoder.h>
 #include <AnimatedGIF.h>
 #include <pngle.h>
@@ -28,11 +29,15 @@
 #define IMG_FORMAT_PNG  0x20  // PNG格式
 #define IMG_FORMAT_GIF  0x30  // GIF格式
 
+// 修改处
+/*
 // 引脚定义
 #define TOUCH_SDA 4
 #define TOUCH_SCL 5
 #define TOUCH_INT 0
 #define TOUCH_RST 1
+*/
+
 #define TFT_BL 3
 
 // 颜色定义（用于方便调试和开发）
@@ -47,14 +52,16 @@
 
 // 全局变量声明
 extern TFT_eSPI tft;
-extern CST816D touch;
+// 修改处
+//extern CST816D touch;
 extern int currentImage;
 extern int totalImages;
 extern AnimatedGIF gif;
 
 // 函数声明
 void setupDisplay();                                                  // 初始化显示模块
-void setupTouch();                                                    // 初始化触摸模块
+// 修改处
+//void setupTouch();                                                    // 初始化触摸模块
 void controlBacklight(bool on);                                       // 控制背光
 
 // 文本显示函数
