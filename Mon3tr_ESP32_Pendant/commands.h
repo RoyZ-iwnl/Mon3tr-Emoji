@@ -26,6 +26,8 @@ enum ResponseCode {
 };
 
 // 触摸手势类型
+// 修改处
+/*
 enum GestureType {
   GESTURE_NONE      = 0x00,
   GESTURE_SLIDE_UP  = 0x01,
@@ -36,6 +38,7 @@ enum GestureType {
   GESTURE_DOUBLE_TAP = 0x0B,
   GESTURE_LONG_PRESS = 0x0C
 };
+*/
 
 // 声明外部变量
 extern unsigned long lastDataTime;
