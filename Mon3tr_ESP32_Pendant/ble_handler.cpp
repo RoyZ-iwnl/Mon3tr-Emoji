@@ -5,6 +5,7 @@
 
 
 // 全局变量定义
+TFT_eSPI tft = TFT_eSPI();
 BLEServer* pServer = nullptr;
 BLECharacteristic* pCommandCharacteristic = nullptr;
 BLECharacteristic* pDataCharacteristic = nullptr;
