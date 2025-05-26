@@ -3,8 +3,9 @@
 
 #include <TFT_eSPI.h>
 #include <TJpg_Decoder.h>
-//#include <pngle.h>
 #include <LittleFS.h>
+// 修改处
+//#include "CST816D.h"
 #include <Wire.h>
 
 // 屏幕参数定义
@@ -25,15 +26,14 @@
 #define IMG_FORMAT_PNG 0x20      // PNG格式（不再使用）
 #define IMG_FORMAT_GIFPACK 0x30  // GIFPack格式
 
+// 引脚定义
 // 修改处
 /*
-// 引脚定义
 #define TOUCH_SDA 4
 #define TOUCH_SCL 5
 #define TOUCH_INT 0
 #define TOUCH_RST 1
 */
-
 #define TFT_BL 3
 
 // 颜色定义
@@ -62,9 +62,9 @@ struct __attribute__((packed)) GIFPackHeader {
 };
 
 // 全局变量声明
-extern TFT_eSPI tft;
 // 修改处
 //extern CST816D touch;
+extern TFT_eSPI tft;
 extern int currentImage;
 extern int totalImages;
 extern File gifpackFile;
@@ -79,10 +79,10 @@ extern uint16_t* gfpFrameBuffer;
 extern bool gfpBufferReady;
 
 // 函数声明
-void setupDisplay();                                                  // 初始化显示模块
+void setupDisplay();             // 初始化显示模块
 // 修改处
-//void setupTouch();                                                    // 初始化触摸模块
-void controlBacklight(bool on);                                       // 控制背光
+//void setupTouch();               // 初始化触摸模块
+void controlBacklight(bool on);  // 控制背光
 
 // 文本显示函数
 void drawCircularText(const char* text, int y, uint16_t color, uint8_t size = 1, uint8_t font = 2);
@@ -90,8 +90,7 @@ void drawText(const char* text, int x, int y, uint16_t color, uint8_t size = 1, 
 
 // 图像处理函数
 void displayImage(int index);         // 显示图片
-// 修改处
-//void checkGestures();                 // 检查手势
+void checkGestures();                 // 检查手势
 void setDisplayImage(uint8_t index);  // 设置显示图片
 
 // 格式相关函数
@@ -102,7 +101,6 @@ uint8_t combineFormatAndIndex(uint8_t format, uint8_t fileIndex);
 // 解码回调
 bool jpegOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap);
 bool gfpJpegOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap);  // GFP专用输出函数
-//void on_png_draw(pngle_t* pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t rgba[4]);
 
 // GIF相关
 void processGifpackAnimation();

@@ -20,11 +20,11 @@ void setup() {
 
   // 初始化显示屏
   setupDisplay();
-  
+
 // 初始化触摸屏
 // 修改处
 //  setupTouch();
-  
+
   // 初始化BLE
   setupBLE();
 
@@ -85,14 +85,15 @@ void handleSerialCommand() {
 // 主循环
 void loop() {
   unsigned long now = millis();
-   
+
   // 修改处
-/*
   // 1. 优先处理触摸检查，提高响应速度
+  /*
   if (now - lastCheck >= 50) {
     checkGestures();
     lastCheck = now;
-  }*/
+  }
+  */
 
   // 2. 处理GIFPack动画
   if (isGifpackPlaying()) {
