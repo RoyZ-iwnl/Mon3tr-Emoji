@@ -25,8 +25,8 @@ enum ResponseCode {
   RESP_PARAM_ERROR = 0x04     // 参数错误
 };
 
-// 触摸手势类型
 // 修改处
+// 触摸手势类型
 /*
 enum GestureType {
   GESTURE_NONE      = 0x00,

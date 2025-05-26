@@ -4,9 +4,10 @@
 #include "file_system.h"
 
 // 全局变量定义
-TFT_eSPI tft = TFT_eSPI();
+
 // 修改处
-//CST816D touch(TOUCH_SDA, TOUCH_SCL, TOUCH_RST, TOUCH_INT);
+// CST816D touch(TOUCH_SDA, TOUCH_SCL, TOUCH_RST, TOUCH_INT);
+
 int currentImage = 0;
 int totalImages = 0;
 unsigned long lastTapTime = 0;
@@ -21,11 +22,6 @@ unsigned long lastFrameTime = 0;
 uint16_t* gfpFrameBuffer = nullptr;
 bool gfpBufferReady = false;
 
-/*
-// PNGLE 解码相关变量
-static uint16_t png_line_buffer[SCREEN_WIDTH];  // 行缓冲区
-static uint32_t png_current_y = 0;              // 当前解码行
-*/
 
 // 屏幕参数定义
 #define SCREEN_WIDTH 240     // 屏幕宽度
@@ -72,8 +68,8 @@ void setupDisplay() {
   Serial.println("显示屏初始化完成");
 }
 
-// 修改处
 // 初始化触摸模块
+// 修改处
 /*
 void setupTouch() {
   Serial.println("初始化触摸...");
@@ -220,36 +216,6 @@ bool gfpJpegOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitma
   return true;
 }
 
-/*
-// PNG 像素绘制回调
-void on_png_draw(pngle_t* pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t rgba[4]) {
-  // 严格的边界检查
-  if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
-  if (w == 0 || h == 0) return;
-
-  // 处理透明度（简单阈值）
-  if (rgba[3] < 128) return;  // 透明像素不绘制
-
-  // 转换为 RGB565
-  uint16_t color = tft.color565(rgba[0], rgba[1], rgba[2]);
-
-  // 如果是新的一行，先推送上一行
-  if (y != png_current_y) {
-    // 推送上一行数据
-    if (png_current_y < SCREEN_HEIGHT) {
-      tft.pushImage(0, png_current_y, SCREEN_WIDTH, 1, png_line_buffer);
-    }
-    // 清空缓冲区并更新行号
-    memset(png_line_buffer, 0, sizeof(png_line_buffer));
-    png_current_y = y;
-  }
-
-  // 确保x坐标在有效范围内
-  if (x < SCREEN_WIDTH) {
-    png_line_buffer[x] = color;
-  }
-}
-*/
 
 // 检查是否有GIFPack在播放
 bool isGifpackPlaying() {
@@ -551,83 +517,7 @@ void displayImage(int index) {
       Serial.println("JPEG文件打开失败");
       showErrorScreen("JPEG OPEN FAIL");
     }
-
-  } /*else if (filename.endsWith(".png")) {
-    Serial.println("开始PNG解码...");
-
-    // 检查内存状态，如果内存太少则跳过PNG处理
-    size_t freeHeap = ESP.getFreeHeap();
-    Serial.printf("PNG解码前可用内存: %d\n", freeHeap);
-
-    if (freeHeap < 80000) {
-      Serial.println("内存不足，无法解码PNG");
-      showErrorScreen("PNG MEM LOW");
-      isDisplaying = false;
-      return;
-    }
-
-    File pngFile = LittleFS.open(filename, "r");
-    if (pngFile) {
-      uint32_t fileSize = pngFile.size();
-      Serial.printf("PNG文件大小: %d, 可用内存: %d\n", fileSize, freeHeap);
-
-      // 创建PNG解码器，减少重试次数降低内存压力
-      pngle_t* pngle = pngle_new();
-      if (pngle) {
-        Serial.println("PNG解码器创建成功");
-        pngle_set_draw_callback(pngle, on_png_draw);
-
-        // 重置PNG解码状态
-        png_current_y = 0;
-        memset(png_line_buffer, 0, sizeof(png_line_buffer));
-
-        // 使用更小的缓冲区减少内存压力
-        uint8_t buffer[128];  // 减小缓冲区从256到128
-        bool decodeSuccess = true;
-
-        while (pngFile.available() && decodeSuccess) {
-          int bytesRead = pngFile.read(buffer, sizeof(buffer));
-          if (pngle_feed(pngle, buffer, bytesRead) < 0) {
-            Serial.println("PNG解码错误");
-            decodeSuccess = false;
-            break;
-          }
-          // yield调用，防止看门狗重启
-          yield();
-        }
-
-        // 推送最后一行（如果有）
-        if (decodeSuccess && png_current_y < SCREEN_HEIGHT) {
-          tft.pushImage(0, png_current_y, SCREEN_WIDTH, 1, png_line_buffer);
-        }
-
-        pngle_destroy(pngle);
-
-        if (!decodeSuccess) {
-          showErrorScreen("PNG DECODE ERR");
-        }
-      } else {
-        Serial.println("PNG解码器创建失败");
-        showErrorScreen("PNG MEM FRAGMENT");
-      }
-      pngFile.close();
-    } else {
-      Serial.println("PNG文件打开失败");
-      showErrorScreen("PNG OPEN FAIL");
-    }
-
-    // PNG处理完毕后，确保GFP缓冲区仍然可用
-    if (!gfpFrameBuffer) {
-      Serial.println("PNG处理后检测到GFP缓冲区丢失，重新分配");
-      gfpFrameBuffer = (uint16_t*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * 2);
-      if (gfpFrameBuffer) {
-        Serial.println("GFP帧缓冲重新分配成功");
-      } else {
-        Serial.println("警告：GFP帧缓冲重新分配失败");
-      }
-    }
-
-  } */
+  }
   else if (filename.endsWith(".gfp")) {
     // GIFPack格式 - 确保帧缓冲可用
     Serial.println("开始初始化GIFPack...");
@@ -687,6 +577,7 @@ void displayImage(int index) {
   isDisplaying = false;
 }
 
+// 修改处
 // 检查手势
 /*
 void checkGestures() {
@@ -716,8 +607,8 @@ void checkGestures() {
     }
   }
 }
-
 */
+
 // 设置显示图片
 void setDisplayImage(uint8_t index) {
   // 提取格式和实际索引
