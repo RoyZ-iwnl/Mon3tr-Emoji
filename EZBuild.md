@@ -1,4 +1,4 @@
-# Mon3tr 表情电子吊坠 0基础快速部署教程
+# Mon3tr 电子吊坠 0基础快速部署教程
 ## 请注意，本项目当前固件为触摸屏版本，请购买时注意
 ## 由[LYao2514](https://github.com/LYao2514)维护的无触摸分支[请点这](https://github.com/RoyZ-iwnl/Mon3tr-Emoji/tree/no-touch-support)
 

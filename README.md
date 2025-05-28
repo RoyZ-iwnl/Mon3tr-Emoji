@@ -1,9 +1,11 @@
-# Mon3tr 表情电子吊坠
+# Mon3tr 电子吊坠
+<p align="center">
+<img src="Images/Mon3tr.png" width="100"></p>
 <p align="center">
 <img src="Images/APPScreenshot.jpg" width="200"></p>
 
-Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（触摸屏版/[无触摸版](https://github.com/RoyZ-iwnl/Mon3tr-Emoji/tree/no-touch-support))
-开发板** 和 **Android 应用**，通过 BLE（蓝牙低功耗）实现无线传输和控制，支持 Android APP 上传、管理并切换显示表情，滑动手势切换表情，目前支持上传JPEG/GIF格式。
+Mon3tr 电子吊坠项目致力于复刻手游明日方舟干员[Mon3tr](https://www.bilibili.com/video/BV131R2YcEuc/?t=148)所佩戴的随心情变换的表情挂件，也可作为一般电子吊坠使用。本项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（触摸屏版/[无触摸版](https://github.com/RoyZ-iwnl/Mon3tr-Emoji/tree/no-touch-support)）
+开发板**开发，通过 BLE + Android APP 实现上传、管理等功能，主分支触摸版固件原生支持滑动手势切换，目前支持上传显示JPEG/GIF格式。
 
 ---
 
@@ -17,8 +19,8 @@ Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（�
 
 ## 功能简介
 
-- ESP32-C3 通过 BLE 与 Android APP 通信，接收命令动态显示表情，支持滑动切换
-- Android APP 支持自定义上传、管理表情
+- ESP32-C3 通过 BLE 与 Android APP 通信，接收命令动态显示图片，触摸版固件支持滑动切换
+- Android APP 支持自定义上传、管理、切换、排序图片
 
 ---
 
@@ -43,11 +45,11 @@ Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（�
    - 【首选项】-【附加开发板管理器网址】：  
      `https://espressif.github.io/arduino-esp32/package_esp32_index.json`
    - 【开发板管理器】安装 `esp32 by Espressif Systems 2.0.13`
+        > ⚠️ 对于本开发板，使用最新版开发板支持套件可能会导致各种问题，本项目仅推荐使用2.0.13
    - 【库管理器】安装以下依赖  
      ```
      TFT_eSPI by Bodmer 2.5.43
      TJpg_Decoder by Bodmer 1.1.0
-     AnimatedGIF by Larry 2.2.0
      ```
 4. 编辑 `libraries/TFT_eSPI/User_Setup.h`  
    **备份原文件**，用以下内容覆盖（仅适配 ESP32-2424S012 + GC9A01 屏）：
@@ -89,7 +91,7 @@ Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（�
 
 1. 上电启动 ESP32-C3，确认 BLE 正常广播
 2. 打开 APP，连接设备
-3. APP 内上传、管理和切换表情
+3. APP 内上传、管理和切换图片
 
 ---
 
@@ -187,15 +189,20 @@ Mon3tr 表情电子吊坠项目基于 **ESP32-C3-MINI-1U（ESP32-2424S012）（�
 ## TODO
 
 - [ ] 代码规整
-
+- [ ] 下调安卓最低SDK支持版本
+- [ ] 优化安卓端的UI，添加关于页面
 ---
 
 ## 鸣谢
 
 - 感谢 [囧囧怪的WIFI版本开源项目](https://www.bilibili.com/video/BV1r3LczZE3N/#reply262992366736) 提供灵感  
   外壳 3D 打印建模和开发板购买可参考该视频
-- 感谢 [LYao2514](https://github.com/LYao2514)维护[无触摸分支](https://github.com/RoyZ-iwnl/Mon3tr-Emoji/tree/no-touch-support)
+- 感谢 [LYao2514](https://github.com/LYao2514)维护[非触摸屏分支](https://github.com/RoyZ-iwnl/Mon3tr-Emoji/tree/no-touch-support)
 - 没有Claude 就没有这个项目~
 ---
+
+### LICENSE
+
+[GPL-3.0](https://github.com/RoyZ-iwnl/Mon3tr-Emoji/blob/main/LICENSE)
 
 如有建议欢迎 issue 或 PR！
