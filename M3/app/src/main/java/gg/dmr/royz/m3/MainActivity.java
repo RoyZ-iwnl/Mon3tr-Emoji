@@ -40,6 +40,7 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.view.View;
 import android.widget.Button;
@@ -253,9 +254,25 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
     }
 
     private void onUploadButtonClick() {
-        // 打开图片选择器
-        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        imagePickerLauncher.launch(intent);
+        // 先刷新图片列表，确保获取最新数据
+        viewModel.refreshImageList();
+
+        // 增加延迟时间，确保图片列表完全加载
+        new Handler().postDelayed(() -> {
+            // 再次检查列表是否已更新
+            List<DeviceImage> currentImages = viewModel.getImageList().getValue();
+            if (currentImages == null || currentImages.isEmpty()) {
+                // 如果列表仍为空，再次刷新并等待
+                viewModel.refreshImageList();
+                new Handler().postDelayed(() -> {
+                    Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                    imagePickerLauncher.launch(intent);
+                }, 500); // 再延迟500ms
+            } else {
+                Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                imagePickerLauncher.launch(intent);
+            }
+        }, 500); // 将延迟从200ms增加到500ms
     }
 
     private void onDisplayButtonClick() {
@@ -306,12 +323,19 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         // 构建索引列表
         List<DeviceImage> images = viewModel.getImageList().getValue();
         final List<String> options = new ArrayList<>();
+
         if (images != null) {
             for (DeviceImage image : images) {
-                options.add("替换图片 " + image.getIndex() +
+                // 正确提取并显示文件索引
+                int combinedIndex = image.getIndex() & 0xFF;
+                int fileIndex = combinedIndex & 0x0F; // 提取低4位作为文件索引
+
+                options.add("替换图片 " + fileIndex +
                         (image.getName().isEmpty() ? "" : " (" + image.getName() + ")"));
             }
         }
+
+        // 添加新图片选项
         options.add("添加为新图片");
 
         // 显示位置选择对话框
@@ -321,9 +345,12 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                     // 确定目标索引
                     byte targetIndex;
                     if (which < options.size() - 1) {
-                        targetIndex = images != null ? images.get(which).getIndex() : 0;
+                        // 替换现有图片 - 正确提取文件索引
+                        int combinedIndex = images.get(which).getIndex() & 0xFF;
+                        targetIndex = (byte)(combinedIndex & 0x0F); // 提取低4位
                     } else {
-                        targetIndex = (byte) (images != null ? images.size() : 0);
+                        // 添加为新图片 - 寻找第一个空闲的索引
+                        targetIndex = findFirstAvailableIndex(images);
                     }
 
                     // 转换并上传GIF文件
@@ -335,35 +362,96 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
 
     // 为普通图片（JPG/PNG）显示索引选择对话框
     private void showIndexSelectionDialog(final Bitmap bitmap) {
-        // 构建索引列表
-        List<DeviceImage> images = viewModel.getImageList().getValue();
-        final List<String> indexOptions = new ArrayList<>();
-        if (images != null) {
-            for (DeviceImage image : images) {
-                indexOptions.add("替换图片 " + image.getIndex() +
-                        (image.getName().isEmpty() ? "" : " (" + image.getName() + ")"));
+        // 在显示对话框前再次刷新列表
+        viewModel.refreshImageList();
+
+        // 稍微延迟以确保数据更新
+        new Handler().postDelayed(() -> {
+            // 获取最新的图片列表
+            List<DeviceImage> images = viewModel.getImageList().getValue();
+            final List<String> indexOptions = new ArrayList<>();
+
+            LogUtil.log("准备显示选择对话框，图片列表大小: " + (images != null ? images.size() : 0));
+
+            if (images != null) {
+                for (DeviceImage image : images) {
+                    // 正确提取并显示文件索引
+                    int combinedIndex = image.getIndex() & 0xFF;
+                    int fileIndex = combinedIndex & 0x0F; // 提取低4位作为文件索引
+
+                    indexOptions.add("替换图片 " + fileIndex +
+                            (image.getName().isEmpty() ? "" : " (" + image.getName() + ")"));
+
+                    LogUtil.log("图片选项: 索引=" + fileIndex + ", 组合索引=0x" +
+                            Integer.toHexString(combinedIndex).toUpperCase());
+                }
+            }
+
+            // 添加新图片选项
+            indexOptions.add("添加为新图片");
+
+            new AlertDialog.Builder(this)
+                    .setTitle("选择图片位置")
+                    .setItems(indexOptions.toArray(new String[0]), (dialog, which) -> {
+                        byte targetIndex;
+                        if (which < indexOptions.size() - 1) {
+                            // 替换现有图片 - 正确提取文件索引
+                            int combinedIndex = images.get(which).getIndex() & 0xFF;
+                            targetIndex = (byte)(combinedIndex & 0x0F); // 提取低4位
+                            LogUtil.log("选择替换现有图片，文件索引: " + targetIndex);
+                        } else {
+                            // 添加为新图片 - 寻找第一个空闲的索引
+                            targetIndex = findFirstAvailableIndex(images);
+                            LogUtil.log("选择添加为新图片，分配索引: " + targetIndex);
+                        }
+
+                        // 直接上传为JPG格式
+                        viewModel.uploadImage(bitmap, targetIndex);
+                    })
+                    .setNegativeButton("取消", null)
+                    .show();
+        }, 300); // 300ms延迟确保数据更新
+    }
+
+
+
+    // 寻找第一个可用的索引
+    private byte findFirstAvailableIndex(List<DeviceImage> images) {
+        // 添加调试日志
+        LogUtil.log("查找可用索引，当前图片列表大小: " + (images != null ? images.size() : 0));
+
+        // 如果图片列表为空，从0开始查找
+        if (images == null) {
+            images = new ArrayList<>();
+            LogUtil.log("图片列表为null，创建空列表");
+        }
+
+        // 创建一个布尔数组来标记已使用的索引
+        boolean[] usedIndices = new boolean[16];
+
+        // 标记已使用的索引 - 关键修改：正确提取文件索引
+        for (DeviceImage image : images) {
+            // 从组合索引中提取文件索引（低4位）
+            int combinedIndex = image.getIndex() & 0xFF;
+            int fileIndex = combinedIndex & 0x0F; // 提取低4位作为文件索引
+
+            if (fileIndex < usedIndices.length) {
+                usedIndices[fileIndex] = true;
+                LogUtil.log("标记已使用索引: " + fileIndex + " (组合索引: 0x" +
+                        Integer.toHexString(combinedIndex).toUpperCase() + ")");
             }
         }
-        // 添加新图片选项
-        indexOptions.add("添加为新图片");
 
-        new AlertDialog.Builder(this)
-                .setTitle("选择图片位置")
-                .setItems(indexOptions.toArray(new String[0]), (dialog, which) -> {
-                    byte targetIndex;
-                    if (which < indexOptions.size() - 1) {
-                        // 替换现有图片
-                        targetIndex = images != null ? images.get(which).getIndex() : 0;
-                    } else {
-                        // 添加为新图片
-                        targetIndex = (byte) (images != null ? images.size() : 0);
-                    }
+        // 找到第一个未使用的索引
+        for (int i = 0; i < usedIndices.length; i++) {
+            if (!usedIndices[i]) {
+                LogUtil.log("找到可用索引: " + i);
+                return (byte) i;
+            }
+        }
 
-                    // 直接上传为JPG格式（PNG已在ImageConverter中转换为无透明度的Bitmap）
-                    viewModel.uploadImage(bitmap, targetIndex);
-                })
-                .setNegativeButton("取消", null)
-                .show();
+        LogUtil.log("没有找到可用索引，返回最后一个");
+        return (byte) (usedIndices.length - 1);
     }
 
     // 设置拖拽排序

@@ -57,6 +57,7 @@ public class ImageListAdapter extends RecyclerView.Adapter<ImageListAdapter.View
     private List<DeviceImage> imageList = new ArrayList<>();
     private byte currentDisplayIndex = -1; // 当前显示的图片索引
     private boolean dragEnabled = false;
+    private int selectedPosition = -1; // 记录当前选中位置
 
     // 点击事件监听器
     public interface OnItemClickListener {
@@ -126,7 +127,18 @@ public class ImageListAdapter extends RecyclerView.Adapter<ImageListAdapter.View
         holder.sizeTextView.setText(size);
 
         // 设置索引
-        holder.indexTextView.setText(String.valueOf(image.getIndex()));
+        int combinedIndex = image.getIndex() & 0xFF; // 确保为正数
+        int fileIndex = combinedIndex & 0x0F; // 提取低4位作为文件索引
+
+        // 根据需求显示文件索引或文件名
+        /*if (!image.getName().isEmpty()) {
+            // 如果有文件名，显示文件名
+            holder.indexTextView.setText(image.getName());
+        } else {
+            // 如果没有文件名，显示文件索引
+            holder.indexTextView.setText(String.valueOf(fileIndex));
+        }*/
+        holder.indexTextView.setText(String.valueOf(fileIndex));
 
         // 设置格式信息
         if (holder.formatTextView != null) {
@@ -188,6 +200,7 @@ public class ImageListAdapter extends RecyclerView.Adapter<ImageListAdapter.View
     @SuppressLint("NotifyDataSetChanged")
     public void setImageList(List<DeviceImage> images) {
         this.imageList = new ArrayList<>(images);
+        this.selectedPosition = -1; // 重置选中位置
         notifyDataSetChanged();
     }
 
@@ -211,25 +224,34 @@ public class ImageListAdapter extends RecyclerView.Adapter<ImageListAdapter.View
     // 清除所有选择
     @SuppressLint("NotifyDataSetChanged")
     public void clearSelection() {
-        boolean hasSelection = false;
-        for (DeviceImage image : imageList) {
-            if (image.isSelected()) {
-                image.setSelected(false);
-                hasSelection = true;
-            }
-        }
-
-        if (hasSelection) {
-            notifyDataSetChanged();
+        if (selectedPosition != -1 && selectedPosition < imageList.size()) {
+            imageList.get(selectedPosition).setSelected(false);
+            notifyItemChanged(selectedPosition);
+            selectedPosition = -1;
         }
     }
 
     // 选择或取消选择指定位置
     public void toggleSelection(int position) {
         if (position >= 0 && position < imageList.size()) {
-            DeviceImage image = imageList.get(position);
-            image.setSelected(!image.isSelected());
+            // 如果点击的是已选中的图片，则取消选择
+            if (selectedPosition == position) {
+                imageList.get(position).setSelected(false);
+                notifyItemChanged(position);
+                selectedPosition = -1;
+                return;
+            }
+
+            // 取消之前的选择
+            if (selectedPosition != -1 && selectedPosition < imageList.size()) {
+                imageList.get(selectedPosition).setSelected(false);
+                notifyItemChanged(selectedPosition);
+            }
+
+            // 选中新的图片
+            imageList.get(position).setSelected(true);
             notifyItemChanged(position);
+            selectedPosition = position;
         }
     }
 

@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Mon3tr</string>
-    <string name="storage_usage_format">%s/1440KB</string>
+    <string name="storage_usage_format">%s/1.40MB</string>
 </resources>
