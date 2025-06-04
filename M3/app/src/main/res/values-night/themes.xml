@@ -1,7 +1,69 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- 夜间模式主题 -->
     <style name="Base.Theme.M3" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        <!-- 主色调 -->
+        <item name="colorPrimary">@color/dark_primary</item>
+        <item name="colorPrimaryVariant">@color/dark_primary_variant</item>
+        <item name="colorOnPrimary">@color/dark_on_primary</item>
+
+        <!-- 辅助色 -->
+        <item name="colorSecondary">@color/dark_secondary</item>
+        <item name="colorSecondaryVariant">@color/dark_secondary_variant</item>
+        <item name="colorOnSecondary">@color/dark_on_secondary</item>
+
+        <!-- 背景和表面 -->
+        <item name="android:colorBackground">@color/dark_background</item>
+        <item name="colorSurface">@color/dark_surface</item>
+        <item name="colorOnBackground">@color/dark_on_background</item>
+        <item name="colorOnSurface">@color/dark_on_surface</item>
+
+        <!-- 状态栏和导航栏 -->
+        <item name="android:statusBarColor">@color/dark_surface</item>
+        <item name="android:navigationBarColor">@color/dark_surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+
+        <!-- 其他属性 -->
+        <item name="colorError">@color/red_500</item>
+        <item name="colorOnError">@android:color/white</item>
+        <item name="android:textColorPrimary">@color/dark_on_background</item>
+        <item name="android:textColorSecondary">@color/gray_400</item>
+    </style>
+
+    <!-- 夜间模式自定义属性 -->
+    <style name="Theme.M3" parent="Base.Theme.M3">
+        <item name="surfaceVariant">@color/dark_surface_variant</item>
+        <item name="outline">@color/dark_outline</item>
+    </style>
+
+    <!-- 夜间模式按钮样式 -->
+    <style name="Button.Primary" parent="Widget.Material3.Button">
+        <item name="backgroundTint">@color/dark_primary</item>
+        <item name="android:textColor">@color/dark_on_primary</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="Button.Secondary" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="strokeColor">@color/dark_primary</item>
+        <item name="android:textColor">@color/dark_primary</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- 夜间模式文本样式 -->
+    <style name="TextAppearance.Headline" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="android:textColor">@color/dark_on_background</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.Body" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/dark_on_background</item>
+    </style>
+
+    <style name="TextAppearance.Caption" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textColor">@color/gray_400</item>
     </style>
 </resources>

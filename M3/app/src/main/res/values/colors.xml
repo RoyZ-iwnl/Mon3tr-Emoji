@@ -1,6 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#1976D2</color>
-    <color name="colorPrimaryDark">#1565C0</color>
-    <color name="colorAccent">#FF4081</color>
+    <!-- 主色调 - 蓝色系 -->
+    <color name="blue_50">#E3F2FD</color>
+    <color name="blue_100">#BBDEFB</color>
+    <color name="blue_200">#90CAF9</color>
+    <color name="blue_300">#64B5F6</color>
+    <color name="blue_400">#42A5F5</color>
+    <color name="blue_500">#2196F3</color>
+    <color name="blue_600">#1E88E5</color>
+    <color name="blue_700">#1976D2</color>
+    <color name="blue_800">#1565C0</color>
+    <color name="blue_900">#0D47A1</color>
+
+    <!-- 辅助色调 - 青色系 -->
+    <color name="cyan_50">#E0F7FA</color>
+    <color name="cyan_100">#B2EBF2</color>
+    <color name="cyan_200">#80DEEA</color>
+    <color name="cyan_300">#4DD0E1</color>
+    <color name="cyan_400">#26C6DA</color>
+    <color name="cyan_500">#00BCD4</color>
+    <color name="cyan_600">#00ACC1</color>
+
+    <!-- 状态色 -->
+    <color name="green_500">#4CAF50</color>
+    <color name="green_600">#43A047</color>
+    <color name="orange_500">#FF9800</color>
+    <color name="orange_600">#F57C00</color>
+    <color name="red_500">#F44336</color>
+    <color name="red_600">#E53935</color>
+
+    <!-- 中性色 -->
+    <color name="gray_50">#FAFAFA</color>
+    <color name="gray_100">#F5F5F5</color>
+    <color name="gray_200">#EEEEEE</color>
+    <color name="gray_300">#E0E0E0</color>
+    <color name="gray_400">#BDBDBD</color>
+    <color name="gray_500">#9E9E9E</color>
+    <color name="gray_600">#757575</color>
+    <color name="gray_700">#616161</color>
+    <color name="gray_800">#424242</color>
+    <color name="gray_900">#212121</color>
+
+    <!-- 白天模式颜色 -->
+    <color name="light_primary">@color/blue_700</color>
+    <color name="light_primary_variant">@color/blue_800</color>
+    <color name="light_secondary">@color/cyan_500</color>
+    <color name="light_secondary_variant">@color/cyan_600</color>
+    <color name="light_background">@color/gray_50</color>
+    <color name="light_surface">@android:color/white</color>
+    <color name="light_surface_variant">@color/gray_100</color>
+    <color name="light_on_primary">@android:color/white</color>
+    <color name="light_on_secondary">@android:color/white</color>
+    <color name="light_on_background">@color/gray_900</color>
+    <color name="light_on_surface">@color/gray_900</color>
+    <color name="light_outline">@color/gray_300</color>
+
+    <!-- 夜间模式颜色 -->
+    <color name="dark_primary">@color/blue_400</color>
+    <color name="dark_primary_variant">@color/blue_600</color>
+    <color name="dark_secondary">@color/cyan_300</color>
+    <color name="dark_secondary_variant">@color/cyan_400</color>
+    <color name="dark_background">#121212</color>
+    <color name="dark_surface">#1E1E1E</color>
+    <color name="dark_surface_variant">#2D2D2D</color>
+    <color name="dark_on_primary">@color/gray_900</color>
+    <color name="dark_on_secondary">@color/gray_900</color>
+    <color name="dark_on_background">@android:color/white</color>
+    <color name="dark_on_surface">@android:color/white</color>
+    <color name="dark_outline">@color/gray_600</color>
+
+    <!-- 兼容旧版本 -->
+    <color name="colorPrimary">@color/light_primary</color>
+    <color name="colorPrimaryDark">@color/light_primary_variant</color>
+    <color name="colorAccent">@color/light_secondary</color>
 </resources>

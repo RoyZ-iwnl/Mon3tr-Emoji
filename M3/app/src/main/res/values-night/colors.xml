@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 夜间模式下的颜色覆盖 -->
+    <color name="colorPrimary">@color/dark_primary</color>
+    <color name="colorPrimaryDark">@color/dark_primary_variant</color>
+    <color name="colorAccent">@color/dark_secondary</color>
+</resources>

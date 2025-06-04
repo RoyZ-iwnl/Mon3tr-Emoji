@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 自定义主题属性 -->
+    <attr name="surfaceVariant" format="color|reference" />
+    <attr name="outline" format="color|reference" />
+
+    <!-- 其他可能需要的自定义属性 -->
+    <attr name="colorOnSurfaceVariant" format="color|reference" />
+    <attr name="colorOutline" format="color|reference" />
+    <attr name="colorOutlineVariant" format="color|reference" />
+</resources>

@@ -3,32 +3,46 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F5F5F5">
+    android:background="?attr/colorSurface">
 
     <!-- 标题栏 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:background="#EEEEEE"
-        android:padding="4dp">
+        android:background="?attr/colorSurfaceVariant"
+        android:padding="8dp"
+        android:gravity="center_vertical">
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="调试日志"
-            android:textStyle="bold"
+            android:textAppearance="@style/TextAppearance.Headline"
+            android:textSize="16sp"
             android:paddingStart="8dp" />
 
-        <Button
+        <!-- 清除按钮 -->
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/clear_log_button"
+            style="@style/Widget.Material3.Button.TextButton"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="36dp"
             android:text="清除"
             android:textSize="12sp"
-            android:minHeight="36dp"
-            style="@style/Widget.AppCompat.Button.Small" />
+            android:layout_marginEnd="8dp"/>
+
+        <!-- 关闭按钮 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/close_log_button"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="关闭"
+            android:textSize="12sp"
+            android:layout_marginEnd="8dp"/>
+
     </LinearLayout>
 
     <!-- 日志内容 -->
@@ -36,13 +50,16 @@
         android:id="@+id/log_scroll_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="8dp">
+        android:padding="8dp"
+        android:scrollbars="vertical">
 
         <TextView
             android:id="@+id/log_text_view"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="12sp"
-            android:fontFamily="monospace" />
+            android:textAppearance="@style/TextAppearance.Body"
+            android:fontFamily="monospace"
+            android:lineSpacingExtra="2dp" />
     </ScrollView>
 </LinearLayout>

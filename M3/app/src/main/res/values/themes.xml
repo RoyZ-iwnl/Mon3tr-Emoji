@@ -1,9 +1,91 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- 基础主题 -->
     <style name="Base.Theme.M3" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <!-- 主色调 -->
+        <item name="colorPrimary">@color/light_primary</item>
+        <item name="colorPrimaryVariant">@color/light_primary_variant</item>
+        <item name="colorOnPrimary">@color/light_on_primary</item>
+
+        <!-- 辅助色 -->
+        <item name="colorSecondary">@color/light_secondary</item>
+        <item name="colorSecondaryVariant">@color/light_secondary_variant</item>
+        <item name="colorOnSecondary">@color/light_on_secondary</item>
+
+        <!-- 背景和表面 -->
+        <item name="android:colorBackground">@color/light_background</item>
+        <item name="colorSurface">@color/light_surface</item>
+        <item name="colorOnBackground">@color/light_on_background</item>
+        <item name="colorOnSurface">@color/light_on_surface</item>
+
+        <!-- 状态栏和导航栏 -->
+        <item name="android:statusBarColor">@color/light_primary</item>
+        <item name="android:navigationBarColor">@color/light_surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" >true</item>
+
+        <!-- 其他属性 -->
+        <item name="colorError">@color/red_500</item>
+        <item name="colorOnError">@android:color/white</item>
+        <item name="android:textColorPrimary">@color/light_on_background</item>
+        <item name="android:textColorSecondary">@color/gray_600</item>
     </style>
 
-    <style name="Theme.M3" parent="Base.Theme.M3" />
+    <!-- 主应用主题 -->
+    <style name="Theme.M3" parent="Base.Theme.M3">
+        <!-- 自定义属性 -->
+        <item name="surfaceVariant">@color/light_surface_variant</item>
+        <item name="outline">@color/light_outline</item>
+    </style>
+
+    <!-- 添加 AppTheme 别名 -->
+    <style name="AppTheme" parent="Theme.M3" />
+
+    <!-- 启动页主题 -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#64DD17</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.M3</item>
+    </style>
+
+    <!-- 卡片样式 -->
+    <style name="CardView.Modern">
+        <item name="cardCornerRadius">16dp</item>
+        <item name="cardElevation">4dp</item>
+        <item name="android:layout_margin">8dp</item>
+        <item name="cardBackgroundColor">?attr/colorSurface</item>
+        <item name="strokeColor">?attr/outline</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+
+    <!-- 按钮样式 -->
+    <style name="Button.Primary" parent="Widget.Material3.Button">
+        <item name="backgroundTint">@color/light_primary</item>
+        <item name="android:textColor">@color/light_on_primary</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="Button.Secondary" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="strokeColor">@color/light_primary</item>
+        <item name="android:textColor">@color/light_primary</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- 文本样式 -->
+    <style name="TextAppearance.Headline" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="android:textColor">@color/light_on_background</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.Body" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/light_on_background</item>
+    </style>
+
+    <style name="TextAppearance.Caption" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textColor">@color/gray_600</item>
+    </style>
 </resources>

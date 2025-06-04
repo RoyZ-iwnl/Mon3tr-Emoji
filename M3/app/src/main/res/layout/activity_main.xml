@@ -1,233 +1,536 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="?android:colorBackground"
+    android:textAlignment="center"
     tools:context=".MainActivity">
 
-    <!-- 顶部工具栏 -->
-
-    <!-- 设备状态卡片 -->
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
-        android:elevation="4dp"
-        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
-        app:layout_constraintTop_toTopOf="parent"
-        app:popupTheme="@style/ThemeOverlay.AppCompat.Light"
-        app:subtitleTextColor="#00BCD4"
-        app:titleTextColor="#2196F3"
-        tools:layout_editor_absoluteX="0dp" />
-
-    <androidx.cardview.widget.CardView
-        android:id="@+id/device_status_card"
+    <!-- 顶部应用栏 -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/app_bar_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="8dp"
-        app:cardCornerRadius="8dp"
-        app:cardElevation="4dp"
-        app:layout_constraintTop_toBottomOf="@id/toolbar">
+        android:elevation="0dp"
+        app:elevation="0dp">
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- 主要内容区域 -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="8dp">
+            android:orientation="vertical"
+            android:padding="16dp">
 
-            <!-- 电池状态 -->
-            <LinearLayout
-                android:layout_width="0dp"
+            <!-- 设备状态卡片 -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/device_status_card"
+                style="@style/CardView.Modern"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:strokeColor="?attr/outline"
+                app:strokeWidth="1dp">
 
-                <!-- 电池状态改为开机时间 -->
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="运行时间"
-                    android:textStyle="bold" />
+                    android:orientation="vertical"
+                    android:padding="20dp">
 
-                <TextView
-                    android:id="@+id/battery_level"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="--" />
-            </LinearLayout>
+                    <!-- 卡片标题 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="16dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-            <!-- 存储状态 -->
-            <LinearLayout
-                android:layout_width="0dp"
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginEnd="12dp"
+                            android:src="@drawable/ic_device_status"
+                            android:tint="?attr/colorPrimary" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="设备状态"
+                            android:textAppearance="@style/TextAppearance.Headline"
+                            android:textSize="18sp" />
+
+                        <!-- 刷新按钮 -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/refresh_button"
+                            style="@style/Widget.Material3.Button.IconButton"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:contentDescription="刷新状态"
+                            app:icon="@drawable/ic_refresh"
+                            app:iconTint="?attr/colorPrimary" />
+
+                    </LinearLayout>
+
+                    <!-- 状态信息网格 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:baselineAligned="false"
+                        android:orientation="horizontal">
+
+                        <!-- 运行时间 -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/status_item_background"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <ImageView
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_marginBottom="8dp"
+                                android:src="@drawable/ic_timer"
+                                android:tint="?attr/colorSecondary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginBottom="4dp"
+                                android:text="运行时间"
+                                android:textAppearance="@style/TextAppearance.Caption"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/battery_level"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textAppearance="@style/TextAppearance.Body"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                        </LinearLayout>
+
+                        <!-- 存储状态 -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:layout_marginEnd="4dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/status_item_background"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <ImageView
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_marginBottom="8dp"
+                                android:src="@drawable/ic_storage"
+                                android:tint="?attr/colorSecondary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginBottom="4dp"
+                                android:text="存储"
+                                android:textAppearance="@style/TextAppearance.Caption"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/storage_usage"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textAlignment="center"
+                                android:textAppearance="@style/TextAppearance.Body"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                        </LinearLayout>
+
+                        <!-- 连接状态 -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/status_item_background"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <ImageView
+                                android:id="@+id/connection_status_icon"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_marginBottom="8dp"
+                                android:src="@drawable/ic_bluetooth_disabled"
+                                android:tint="@color/gray_500" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginBottom="4dp"
+                                android:text="状态"
+                                android:textAppearance="@style/TextAppearance.Caption"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/connection_status"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="未连接"
+                                android:textAppearance="@style/TextAppearance.Body"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 操作按钮区域 -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/CardView.Modern"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:strokeColor="?attr/outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <!-- 操作区标题 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="16dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginEnd="12dp"
+                            android:src="@drawable/ic_control_panel"
+                            android:tint="?attr/colorPrimary" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="设备控制"
+                            android:textAppearance="@style/TextAppearance.Headline"
+                            android:textSize="18sp" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/connect_button"
+                            style="@style/Button.Primary"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_marginEnd="8dp"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:text="扫描连接"
+                            android:textSize="12sp"
+                            app:icon="@drawable/ic_bluetooth_searching"
+                            app:iconGravity="start"
+                            app:iconPadding="4dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/upload_button"
+                            style="@style/Button.Secondary"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_marginStart="4dp"
+                            android:layout_marginEnd="4dp"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:text="上传图片"
+                            android:textSize="12sp"
+                            app:icon="@drawable/ic_upload"
+                            app:iconGravity="start"
+                            app:iconPadding="4dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/display_button"
+                            style="@style/Button.Secondary"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:text="显示选中"
+                            android:textSize="12sp"
+                            app:icon="@drawable/ic_display"
+                            app:iconGravity="start"
+                            app:iconPadding="4dp" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 图片管理区域 -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/CardView.Modern"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginBottom="16dp"
                 android:layout_weight="1"
-                android:orientation="vertical">
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:strokeColor="?attr/outline"
+                app:strokeWidth="1dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="存储"
-                    android:textStyle="bold" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/storage_usage"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="--" />
-            </LinearLayout>
+                    <!-- 图片区标题 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="20dp"
+                        android:paddingBottom="12dp">
 
-            <!-- 连接状态 -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginEnd="12dp"
+                            android:src="@drawable/ic_image_gallery"
+                            android:tint="?attr/colorPrimary" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="状态"
-                    android:textStyle="bold" />
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="图片管理"
+                            android:textAppearance="@style/TextAppearance.Headline"
+                            android:textSize="18sp" />
 
-                <TextView
-                    android:id="@+id/connection_status"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="未连接" />
-            </LinearLayout>
+                        <!-- 退出拖拽模式按钮 -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/exit_drag_button"
+                            style="@style/Widget.Material3.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:layout_marginEnd="8dp"
+                            android:text="退出拖拽"
+                            android:textSize="12sp"
+                            android:visibility="gone"
+                            app:icon="@drawable/ic_check"
+                            app:iconSize="16dp" />
 
-            <!-- 刷新按钮 -->
-            <ImageButton
-                android:id="@+id/refresh_button"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="刷新状态"
-                android:padding="8dp"
-                android:src="@android:drawable/ic_popup_sync" />
+                        <TextView
+                            android:id="@+id/image_count_text"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/count_badge_background"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="4dp"
+                            android:text="0 张图片"
+                            android:textAppearance="@style/TextAppearance.Caption" />
+
+                    </LinearLayout>
+
+                    <!-- 图片列表 -->
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/image_recycler_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:clipToPadding="false"
+                        android:padding="12dp"
+                        android:scrollbars="vertical" />
+
+                    <!-- 空状态提示 -->
+                    <LinearLayout
+                        android:id="@+id/empty_state_layout"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:padding="32dp"
+                        android:visibility="gone">
+
+                        <ImageView
+                            android:layout_width="80dp"
+                            android:layout_height="80dp"
+                            android:layout_marginBottom="16dp"
+                            android:src="@drawable/ic_empty_gallery"
+                            android:tint="?attr/outline" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:text="暂无图片"
+                            android:textAppearance="@style/TextAppearance.Body"
+                            android:textSize="16sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:text="连接设备后上传您的第一张图片"
+                            android:textAppearance="@style/TextAppearance.Caption" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
 
-    <!-- 操作按钮区 -->
-    <LinearLayout
-        android:id="@+id/action_buttons"
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- 日志显示区域 -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/log_card"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="8dp"
-        app:layout_constraintTop_toBottomOf="@id/device_status_card">
+        android:layout_height="200dp"
+        android:layout_gravity="bottom"
+        android:layout_margin="16dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="?attr/colorSurface"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="8dp">
 
-        <Button
-            android:id="@+id/connect_button"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="4dp"
-            android:layout_weight="1"
-            android:text="扫描连接" />
-
-        <Button
-            android:id="@+id/upload_button"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:layout_weight="1"
-            android:text="上传图片" />
-
-        <Button
-            android:id="@+id/display_button"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:layout_weight="1"
-            android:text="显示选中" />
-    </LinearLayout>
-
-    <!-- 分割线 -->
-    <View
-        android:id="@+id/divider"
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="?android:attr/listDivider"
-        app:layout_constraintTop_toBottomOf="@id/action_buttons" />
-
-    <!-- 图片列表 -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/image_recycler_view"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginBottom="8dp"
-        android:clipToPadding="false"
-        android:padding="4dp"
-        app:layout_constraintBottom_toTopOf="@id/log_container"
-        app:layout_constraintTop_toBottomOf="@id/divider" />
-
-    <!-- 日志容器 -->
-    <FrameLayout
-        android:id="@+id/log_container"
-        android:layout_width="match_parent"
-        android:layout_height="160dp"
-        app:layout_constraintBottom_toBottomOf="parent">
-
-        <!-- 折叠指示器 -->
-        <View
-            android:id="@+id/log_handle"
-            android:layout_width="match_parent"
-            android:layout_height="16dp"
-            android:background="#EEEEEE" />
-
-        <!-- 日志显示组件 -->
         <gg.dmr.royz.m3.view.LogDisplayView
             android:id="@+id/log_display"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="16dp" />
-    </FrameLayout>
+            android:layout_height="match_parent" />
 
-    <!-- 传输进度指示器 -->
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- 传输进度覆盖层 -->
     <FrameLayout
         android:id="@+id/progress_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#99000000"
+        android:background="#B3000000"
+        android:clickable="true"
+        android:focusable="true"
         android:visibility="gone">
 
-        <LinearLayout
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_margin="32dp"
-            android:background="@android:color/white"
-            android:orientation="vertical"
-            android:padding="16dp">
+            app:cardBackgroundColor="?attr/colorSurface"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="8dp">
 
-            <TextView
-                android:id="@+id/progress_title"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="正在传输图片..."
-                android:textAlignment="center"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="24dp">
 
-            <ProgressBar
-                android:id="@+id/progress_bar"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="8dp" />
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:id="@+id/progress_indicator"
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:layout_marginBottom="16dp"
+                    app:indicatorColor="?attr/colorPrimary"
+                    app:trackColor="?attr/outline" />
 
-            <TextView
-                android:id="@+id/progress_text"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:textAlignment="center" />
-        </LinearLayout>
+                <TextView
+                    android:id="@+id/progress_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="正在传输图片..."
+                    android:textAppearance="@style/TextAppearance.Headline"
+                    android:textSize="18sp" />
+
+                <com.google.android.material.progressindicator.LinearProgressIndicator
+                    android:id="@+id/progress_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    app:indicatorColor="?attr/colorPrimary"
+                    app:trackColor="?attr/outline" />
+
+                <TextView
+                    android:id="@+id/progress_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0%"
+                    android:textAppearance="@style/TextAppearance.Body"
+                    android:textSize="14sp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
     </FrameLayout>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <!-- 关于按钮 -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fab_about"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="16dp"
+        android:text="关于"
+        app:backgroundTint="?attr/colorPrimary"
+        app:icon="@drawable/ic_info"
+        app:tint="?attr/colorOnPrimary" />
+
+    <!-- 浮动操作按钮 -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fab_log_toggle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:text="日志"
+        app:backgroundTint="?attr/colorSecondary"
+        app:icon="@drawable/ic_terminal"
+        app:tint="?attr/colorOnSecondary" />
+
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

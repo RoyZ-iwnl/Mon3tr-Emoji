@@ -45,4 +45,6 @@ dependencies {
     implementation (libs.androidx.lifecycle.viewmodel)
     implementation (libs.androidx.lifecycle.livedata)
     implementation (libs.android.gif.drawable)
+    implementation(libs.androidx.coordinatorlayout)
+    implementation (libs.androidx.core.splashscreen)
 }

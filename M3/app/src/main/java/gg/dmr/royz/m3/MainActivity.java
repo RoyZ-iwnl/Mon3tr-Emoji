@@ -41,7 +41,10 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -58,6 +61,7 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.splashscreen.SplashScreen;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -73,6 +77,8 @@ import gg.dmr.royz.m3.model.DeviceStatus;
 import gg.dmr.royz.m3.utils.ImageConverter;
 import gg.dmr.royz.m3.utils.LogUtil;
 import gg.dmr.royz.m3.view.LogDisplayView;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 
 public class MainActivity extends AppCompatActivity implements ImageListAdapter.OnItemClickListener {
 
@@ -100,6 +106,7 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
     private ProgressBar progressBar;
     private TextView progressText;
     private Toolbar toolbar;
+    private boolean isReady = false;
 
     // 适配器
     private ImageListAdapter imageAdapter;
@@ -114,16 +121,21 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+        //AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+        SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
+
+        // 控制启动屏幕显示时长
+        splashScreen.setKeepOnScreenCondition(() -> !isReady);
+
+        // 模拟初始化过程（2秒延迟）
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            isReady = true;
+        }, 1000);
         setContentView(R.layout.activity_main);
 
         // 初始化ViewModel
         viewModel = new ViewModelProvider(this).get(MainViewModel.class);
-
-        // 设置工具栏
-        toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
 
         // 初始化视图
         initViews();
@@ -154,6 +166,16 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         uploadButton.setOnClickListener(v -> onUploadButtonClick());
         displayButton.setOnClickListener(v -> onDisplayButtonClick());
         findViewById(R.id.refresh_button).setOnClickListener(v -> onRefreshButtonClick());
+        findViewById(R.id.exit_drag_button).setOnClickListener(v -> exitDragMode());
+        // 添加关于按钮点击事件
+        findViewById(R.id.fab_about).setOnClickListener(v -> {
+            Intent intent = new Intent(this, AboutActivity.class);
+            startActivity(intent);
+        });
+        // 日志切换按钮点击事件
+        findViewById(R.id.fab_log_toggle).setOnClickListener(v -> toggleLogDisplay());
+        // 日志显示视图内部的按钮事件
+        setupLogDisplayButtons();
 
         // 设置图片列表
         imageAdapter = new ImageListAdapter();
@@ -163,6 +185,126 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
 
         // 设置拖拽排序
         setupDragAndDrop();
+    }
+
+    // 进入拖拽模式
+    private void enterDragMode() {
+        imageAdapter.enableDrag(true);
+
+        // 显示退出拖拽按钮
+        findViewById(R.id.exit_drag_button).setVisibility(View.VISIBLE);
+
+        Toast.makeText(this, "拖拽模式已开启，长按图片拖动排序", Toast.LENGTH_SHORT).show();
+    }
+
+    // 退出拖拽模式
+    private void exitDragMode() {
+        imageAdapter.enableDrag(false);
+
+        // 隐藏退出拖拽按钮
+        findViewById(R.id.exit_drag_button).setVisibility(View.GONE);
+
+        // 刷新图片列表
+        viewModel.refreshImageList();
+
+        Toast.makeText(this, "已退出拖拽模式", Toast.LENGTH_SHORT).show();
+    }
+
+    // 设置日志显示视图内部的按钮事件
+    private void setupLogDisplayButtons() {
+        // 等待 LogDisplayView 初始化完成后设置按钮事件
+        logDisplayView.post(() -> {
+            // 清除日志按钮
+            View clearButton = logDisplayView.findViewById(R.id.clear_log_button);
+            if (clearButton != null) {
+                clearButton.setOnClickListener(v -> {
+                    // 清除日志内容
+                    if (logDisplayView != null) {
+                        logDisplayView.clearLog();
+                    }
+                });
+            }
+
+            // 关闭日志按钮
+            View closeButton = logDisplayView.findViewById(R.id.close_log_button);
+            if (closeButton != null) {
+                closeButton.setOnClickListener(v -> {
+                    // 关闭日志显示
+                    hideLogDisplay();
+                });
+            }
+        });
+    }
+
+    // 显示日志显示区域
+    private void showLogDisplay() {
+        View logCard = findViewById(R.id.log_card);
+        if (logCard != null) {
+            logCard.setVisibility(View.VISIBLE);
+        }
+    }
+
+    // 隐藏日志显示区域
+    private void hideLogDisplay() {
+        View logCard = findViewById(R.id.log_card);
+        if (logCard != null) {
+            logCard.setVisibility(View.GONE);
+        }
+    }
+
+    private void toggleLogDisplay() {
+        View logCard = findViewById(R.id.log_card);
+        if (logCard != null) {
+            if (logCard.getVisibility() == View.GONE) {
+                showLogDisplay();
+            } else {
+                hideLogDisplay();
+            }
+        }
+    }
+
+    private void updateConnectionStatus(BleManager.State state) {
+        String statusText;
+        int iconRes;
+        int iconTint;
+
+        switch (state) {
+            case CONNECTED:
+                statusText = "已连接";
+                iconRes = R.drawable.ic_bluetooth_connected;
+                iconTint = ContextCompat.getColor(this, R.color.green_500);
+                break;
+            case CONNECTING:
+                statusText = "正在连接";
+                iconRes = R.drawable.ic_bluetooth_searching;
+                iconTint = ContextCompat.getColor(this, R.color.orange_500);
+                break;
+            case SCANNING:
+                statusText = "正在扫描";
+                iconRes = R.drawable.ic_bluetooth_searching;
+                iconTint = ContextCompat.getColor(this, R.color.blue_500);
+                break;
+            case DISCOVERING:
+                statusText = "正在发现服务";
+                iconRes = R.drawable.ic_bluetooth_searching;
+                iconTint = ContextCompat.getColor(this, R.color.cyan_500);
+                break;
+            case TRANSMITTING:
+                statusText = "正在传输";
+                iconRes = R.drawable.ic_bluetooth_connected;
+                iconTint = ContextCompat.getColor(this, R.color.cyan_500);
+                break;
+            default:
+                statusText = "未连接";
+                iconRes = R.drawable.ic_bluetooth_disabled;
+                iconTint = ContextCompat.getColor(this, R.color.gray_500);
+                break;
+        }
+
+        connectionStatusView.setText(statusText);
+        ImageView connectionIcon = findViewById(R.id.connection_status_icon);
+        connectionIcon.setImageResource(iconRes);
+        connectionIcon.setColorFilter(iconTint);
     }
 
     private void setupObservers() {
@@ -175,6 +317,21 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         // 观察图片列表
         viewModel.getImageList().observe(this, images -> {
             imageAdapter.setImageList(images);
+
+            // 更新图片数量显示
+            TextView imageCountText = findViewById(R.id.image_count_text);
+            LinearLayout emptyStateLayout = findViewById(R.id.empty_state_layout);
+
+            if (images != null && !images.isEmpty()) {
+                imageCountText.setText(images.size() + " 张图片");
+                emptyStateLayout.setVisibility(View.GONE);
+                imageRecyclerView.setVisibility(View.VISIBLE);
+            } else {
+                imageCountText.setText("0 张图片");
+                emptyStateLayout.setVisibility(View.VISIBLE);
+                imageRecyclerView.setVisibility(View.GONE);
+            }
+
             // 更新当前显示的图片
             DeviceStatus status = viewModel.getDeviceStatus().getValue();
             if (status != null) {
@@ -203,31 +360,6 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         viewModel.getIsTransferring().observe(this, isTransferring -> {
             progressOverlay.setVisibility(isTransferring ? View.VISIBLE : View.GONE);
         });
-    }
-
-    private void updateConnectionStatus(BleManager.State state) {
-        String statusText;
-        switch (state) {
-            case CONNECTED:
-                statusText = "已连接";
-                break;
-            case CONNECTING:
-                statusText = "正在连接";
-                break;
-            case SCANNING:
-                statusText = "正在扫描";
-                break;
-            case DISCOVERING:
-                statusText = "正在发现服务";
-                break;
-            case TRANSMITTING:
-                statusText = "正在传输";
-                break;
-            default:
-                statusText = "未连接";
-                break;
-        }
-        connectionStatusView.setText(statusText);
     }
 
     private void updateButtonState(BleManager.State state) {
@@ -283,6 +415,7 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         } else {
             Toast.makeText(this, "请选择一张图片", Toast.LENGTH_SHORT).show();
         }
+        viewModel.refreshDeviceStatus();
     }
 
     private void onRefreshButtonClick() {
@@ -504,13 +637,12 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("图片操作");
         String[] options = {"删除图片", "开始拖拽排序", "取消"};
-
         builder.setItems(options, (dialog, which) -> {
             switch (which) {
                 case 0: // 删除图片
                     new AlertDialog.Builder(this)
                             .setTitle("确认删除")
-                            .setMessage("确定要删除图片 " + image.getIndex() + " 吗？")
+                            .setMessage("确定要删除图片 " + (image.getIndex() & 0x0F) + " 吗？")
                             .setPositiveButton("确定", (d, w) -> {
                                 viewModel.deleteImage(image.getIndex());
                             })
@@ -518,20 +650,7 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
                             .show();
                     break;
                 case 1: // 开始拖拽排序
-                    imageAdapter.enableDrag(true);
-                    Toast.makeText(this, "拖拽模式已开启，长按图片拖动排序", Toast.LENGTH_SHORT).show();
-                    // 添加完成按钮到工具栏
-                    getSupportActionBar().setTitle("拖拽排序模式");
-                    getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-                    getSupportActionBar().setHomeAsUpIndicator(android.R.drawable.ic_menu_close_clear_cancel);
-                    toolbar.setNavigationOnClickListener(v -> {
-                        // 退出拖拽模式
-                        imageAdapter.enableDrag(false);
-                        viewModel.refreshImageList();
-                        getSupportActionBar().setTitle(R.string.app_name);
-                        getSupportActionBar().setDisplayHomeAsUpEnabled(false);
-                        toolbar.setNavigationOnClickListener(null);
-                    });
+                    enterDragMode();
                     break;
                 case 2: // 取消
                     dialog.dismiss();
