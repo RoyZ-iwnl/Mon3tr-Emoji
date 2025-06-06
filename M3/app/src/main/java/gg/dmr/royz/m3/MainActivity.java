@@ -1,29 +1,29 @@
 /*
  * Mon3tr Emoji - ESP32-C3 BLE Project and Android APP for custom display
  * Copyright (C) 2025  RoyZ-iwnl
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * 本程序是自由软件，在自由软件联盟发布的GNU通用公共许可证条款下，
  * 你可以对其进行再发布及修改。协议版本为第三版或（随你）更新的版本。
- * 
+ *
  * 本程序的发布是希望它能够有用，但不负任何担保责任；
  * 具体详情请参见GNU通用公共许可证。
- * 
+ *
  * 你理当已收到一份GNU通用公共许可证的副本。
  * 如果没有，请查阅<https://www.gnu.org/licenses/>
- * 
+ *
  * Contact/联系方式: Roy@DMR.gg
  */
 package gg.dmr.royz.m3;
@@ -43,12 +43,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -57,8 +56,6 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.app.AppCompatDelegate;
-import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.splashscreen.SplashScreen;
@@ -76,9 +73,10 @@ import gg.dmr.royz.m3.model.DeviceImage;
 import gg.dmr.royz.m3.model.DeviceStatus;
 import gg.dmr.royz.m3.utils.ImageConverter;
 import gg.dmr.royz.m3.utils.LogUtil;
-import gg.dmr.royz.m3.view.LogDisplayView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+
+import com.google.android.material.button.MaterialButton;
 
 public class MainActivity extends AppCompatActivity implements ImageListAdapter.OnItemClickListener {
 
@@ -97,19 +95,23 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
     private Button connectButton;
     private Button uploadButton;
     private Button displayButton;
-    private TextView batteryLevelView;
+    private TextView UptimeView;
     private TextView storageUsageView;
     private TextView connectionStatusView;
     private RecyclerView imageRecyclerView;
-    private LogDisplayView logDisplayView;
     private FrameLayout progressOverlay;
     private ProgressBar progressBar;
     private TextView progressText;
-    private Toolbar toolbar;
-    private boolean isReady = false;
 
-    // 适配器
+    // 日志相关组件（直接引用主布局中的组件）
+    private ScrollView logScrollView;
+    private TextView logTextView;
+    private StringBuilder logBuilder = new StringBuilder();
+    private static final int MAX_LOG_LENGTH = 8000;
+
+    private boolean isReady = false;
     private ImageListAdapter imageAdapter;
+    //private boolean autoScrollEnabled = true;
 
     // 图片选择结果处理
     private final ActivityResultLauncher<Intent> imagePickerLauncher =
@@ -121,14 +123,13 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        //AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
         SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
 
         // 控制启动屏幕显示时长
         splashScreen.setKeepOnScreenCondition(() -> !isReady);
 
-        // 模拟初始化过程（2秒延迟）
+        // 模拟初始化过程（1秒延迟）
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             isReady = true;
         }, 1000);
@@ -143,6 +144,9 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         // 设置观察者
         setupObservers();
 
+        // 设置日志监听器
+        setupLogListener();
+
         // 检查权限
         checkBluetoothPermissions();
     }
@@ -152,14 +156,17 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         connectButton = findViewById(R.id.connect_button);
         uploadButton = findViewById(R.id.upload_button);
         displayButton = findViewById(R.id.display_button);
-        batteryLevelView = findViewById(R.id.battery_level);
+        UptimeView = findViewById(R.id.uptime);
         storageUsageView = findViewById(R.id.storage_usage);
         connectionStatusView = findViewById(R.id.connection_status);
         imageRecyclerView = findViewById(R.id.image_recycler_view);
-        logDisplayView = findViewById(R.id.log_display);
         progressOverlay = findViewById(R.id.progress_overlay);
         progressBar = findViewById(R.id.progress_bar);
         progressText = findViewById(R.id.progress_text);
+
+        // 初始化日志相关组件
+        logScrollView = findViewById(R.id.log_scroll_view);
+        logTextView = findViewById(R.id.log_text_view);
 
         // 设置按钮点击事件
         connectButton.setOnClickListener(v -> onConnectButtonClick());
@@ -167,13 +174,16 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         displayButton.setOnClickListener(v -> onDisplayButtonClick());
         findViewById(R.id.refresh_button).setOnClickListener(v -> onRefreshButtonClick());
         findViewById(R.id.exit_drag_button).setOnClickListener(v -> exitDragMode());
+
         // 添加关于按钮点击事件
         findViewById(R.id.fab_about).setOnClickListener(v -> {
             Intent intent = new Intent(this, AboutActivity.class);
             startActivity(intent);
         });
+
         // 日志切换按钮点击事件
         findViewById(R.id.fab_log_toggle).setOnClickListener(v -> toggleLogDisplay());
+
         // 日志显示视图内部的按钮事件
         setupLogDisplayButtons();
 
@@ -185,6 +195,41 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
 
         // 设置拖拽排序
         setupDragAndDrop();
+    }
+
+    // 设置日志监听器
+    private void setupLogListener() {
+        LogUtil.setLogListener(new LogUtil.LogListener() {
+            @Override
+            public void onNewLog(String logMessage) {
+                runOnUiThread(() -> {
+                    // 添加时间戳
+                    String timestamp = android.text.format.DateFormat.format("HH:mm:ss",
+                            System.currentTimeMillis()).toString();
+
+                    // 添加到日志
+                    if (logBuilder.length() > 0) {
+                        logBuilder.append("\n");
+                    }
+                    logBuilder.append("[").append(timestamp).append("] ").append(logMessage);
+
+                    // 检查日志长度，防止过长
+                    if (logBuilder.length() > MAX_LOG_LENGTH) {
+                        int cutIndex = logBuilder.length() - MAX_LOG_LENGTH;
+                        int newlineIndex = logBuilder.indexOf("\n", cutIndex);
+                        if (newlineIndex >= 0) {
+                            logBuilder.delete(0, newlineIndex + 1);
+                        }
+                    }
+
+                    // 更新文本
+                    if (logTextView != null) {
+                        logTextView.setText(logBuilder.toString());
+                    }
+                    logScrollView.post(() -> logScrollView.fullScroll(ScrollView.FOCUS_DOWN));
+                });
+            }
+        });
     }
 
     // 进入拖拽模式
@@ -212,56 +257,89 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
 
     // 设置日志显示视图内部的按钮事件
     private void setupLogDisplayButtons() {
-        // 等待 LogDisplayView 初始化完成后设置按钮事件
-        logDisplayView.post(() -> {
-            // 清除日志按钮
-            View clearButton = logDisplayView.findViewById(R.id.clear_log_button);
-            if (clearButton != null) {
-                clearButton.setOnClickListener(v -> {
-                    // 清除日志内容
-                    if (logDisplayView != null) {
-                        logDisplayView.clearLog();
-                    }
-                });
-            }
+        /* 自动滚动按钮
+        View autoScrollButton = findViewById(R.id.auto_scroll_button);
+        if (autoScrollButton != null) {
+            updateAutoScrollButton(autoScrollButton);
+            autoScrollButton.setOnClickListener(v -> {
+                // 切换自动滚动状态
+                autoScrollEnabled = !autoScrollEnabled;
+                updateAutoScrollButton(v);
 
-            // 关闭日志按钮
-            View closeButton = logDisplayView.findViewById(R.id.close_log_button);
-            if (closeButton != null) {
-                closeButton.setOnClickListener(v -> {
-                    // 关闭日志显示
-                    hideLogDisplay();
-                });
-            }
-        });
+                if (autoScrollEnabled) {
+                    scrollToBottom();
+                }
+            });
+        }*/
+
+        // 清除日志按钮
+        View clearButton = findViewById(R.id.clear_log_button);
+        if (clearButton != null) {
+            clearButton.setOnClickListener(v -> clearLog());
+        }
     }
 
     // 显示日志显示区域
     private void showLogDisplay() {
-        View logCard = findViewById(R.id.log_card);
-        if (logCard != null) {
-            logCard.setVisibility(View.VISIBLE);
+        View logCardContainer = findViewById(R.id.log_card_container);
+        if (logCardContainer != null) {
+            logCardContainer.setVisibility(View.VISIBLE);
+
+            // 自动开启滚动并滚动到底部
+            //autoScrollEnabled = true;
+            scrollToBottom();
+
+            /* 更新自动滚动按钮状态
+            View autoScrollButton = findViewById(R.id.auto_scroll_button);
+            if (autoScrollButton != null) {
+                updateAutoScrollButton(autoScrollButton);
+            }*/
         }
     }
 
     // 隐藏日志显示区域
     private void hideLogDisplay() {
-        View logCard = findViewById(R.id.log_card);
-        if (logCard != null) {
-            logCard.setVisibility(View.GONE);
+        View logCardContainer = findViewById(R.id.log_card_container);
+        if (logCardContainer != null) {
+            logCardContainer.setVisibility(View.GONE);
         }
     }
 
     private void toggleLogDisplay() {
-        View logCard = findViewById(R.id.log_card);
-        if (logCard != null) {
-            if (logCard.getVisibility() == View.GONE) {
+        View logCardContainer = findViewById(R.id.log_card_container);
+        if (logCardContainer != null) {
+            if (logCardContainer.getVisibility() == View.GONE) {
                 showLogDisplay();
             } else {
                 hideLogDisplay();
             }
         }
     }
+
+    // 手动滚动到底部
+    private void scrollToBottom() {
+        if (logScrollView != null) {
+            logScrollView.post(() -> logScrollView.fullScroll(ScrollView.FOCUS_DOWN));
+        }
+    }
+
+    // 清除日志
+    private void clearLog() {
+        logBuilder.setLength(0);
+        if (logTextView != null) {
+            logTextView.setText("");
+        }
+    }
+
+    /* 更新自动滚动按钮状态
+    private void updateAutoScrollButton(View button) {
+        MaterialButton btn = (MaterialButton) button;
+        if (autoScrollEnabled) {
+            btn.setText("手动模式");
+        } else {
+            btn.setText("自动滚动");
+        }
+    }*/
 
     private void updateConnectionStatus(BleManager.State state) {
         String statusText;
@@ -342,8 +420,7 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         // 观察设备状态
         viewModel.getDeviceStatus().observe(this, status -> {
             if (status != null) {
-                // 将电池电量显示改为开机时长
-                batteryLevelView.setText(status.getFormattedUptime());
+                UptimeView.setText(status.getFormattedUptime());
                 String currentStorage = status.getFormattedStorage(); // 可能是 "--" 或 "500KB"
                 storageUsageView.setText(getString(R.string.storage_usage_format, currentStorage));
                 imageAdapter.setCurrentDisplayIndex(status.getCurrentImage());
@@ -423,7 +500,7 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         viewModel.refreshDeviceStatus();
     }
 
-    // 处理图片选择 - 简化后的版本，自动根据格式处理
+    // 处理图片选择
     private void handleImageSelection(Uri imageUri) {
         try {
             // 获取图片格式类型
@@ -546,8 +623,6 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         }, 300); // 300ms延迟确保数据更新
     }
 
-
-
     // 寻找第一个可用的索引
     private byte findFirstAvailableIndex(List<DeviceImage> images) {
         // 添加调试日志
@@ -562,7 +637,7 @@ public class MainActivity extends AppCompatActivity implements ImageListAdapter.
         // 创建一个布尔数组来标记已使用的索引
         boolean[] usedIndices = new boolean[16];
 
-        // 标记已使用的索引 - 关键修改：正确提取文件索引
+        // 标记已使用的索引
         for (DeviceImage image : images) {
             // 从组合索引中提取文件索引（低4位）
             int combinedIndex = image.getIndex() & 0xFF;

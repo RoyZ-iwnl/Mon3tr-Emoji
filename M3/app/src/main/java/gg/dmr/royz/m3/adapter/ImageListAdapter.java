@@ -29,6 +29,7 @@
 package gg.dmr.royz.m3.adapter;
 
 import android.annotation.SuppressLint;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
@@ -38,7 +39,10 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.card.MaterialCardView;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -77,8 +81,8 @@ public class ImageListAdapter extends RecyclerView.Adapter<ImageListAdapter.View
         public TextView nameTextView;
         public TextView sizeTextView;
         public TextView indexTextView;
-        public TextView formatTextView; // 新增：显示图片格式
-        public View selectedIndicator;
+        public TextView formatTextView;
+        //public View selectedIndicator;
         public View displayingIndicator;
         public View container;
 
@@ -88,7 +92,7 @@ public class ImageListAdapter extends RecyclerView.Adapter<ImageListAdapter.View
             sizeTextView = itemView.findViewById(R.id.image_size);
             indexTextView = itemView.findViewById(R.id.image_index);
             formatTextView = itemView.findViewById(R.id.image_format);
-            selectedIndicator = itemView.findViewById(R.id.selected_indicator);
+            //selectedIndicator = itemView.findViewById(R.id.selected_indicator);
             displayingIndicator = itemView.findViewById(R.id.displaying_indicator);
             container = itemView.findViewById(R.id.item_container);
         }
@@ -114,6 +118,42 @@ public class ImageListAdapter extends RecyclerView.Adapter<ImageListAdapter.View
         // 设置数据
         holder.nameTextView.setText(image.getName().isEmpty() ?
                 "图片 " + image.getIndex() : image.getName());
+
+        // 获取MaterialCardView引用
+        MaterialCardView cardView = (MaterialCardView) holder.itemView;
+
+        // 设置选中状态 - 使用主色调高亮
+        if (image.isSelected()) {
+            cardView.setStrokeColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.blue_500));
+            cardView.setStrokeWidth(4);
+            /*holder.selectedIndicator.setVisibility(View.VISIBLE);
+            holder.selectedIndicator.setBackgroundTintList(
+                    ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.blue_500))
+            );*/
+        } else {
+            cardView.setStrokeWidth(0);
+            //holder.selectedIndicator.setVisibility(View.INVISIBLE);
+        }
+
+        // 设置当前显示状态 - 使用绿色高亮
+        if (image.getIndex() == currentDisplayIndex) {
+            if (!image.isSelected()) {
+                cardView.setStrokeColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.green_500));
+                cardView.setStrokeWidth(3);
+            }
+            holder.displayingIndicator.setVisibility(View.VISIBLE);
+            holder.displayingIndicator.setBackgroundTintList(
+                    ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.green_500))
+            );
+        } else {
+            holder.displayingIndicator.setVisibility(View.INVISIBLE);
+            if (!image.isSelected()) {
+                cardView.setStrokeWidth(0);
+            }
+        }
+
+        // 保存位置
+        holder.itemView.setTag(position);
 
         // 格式化大小
         String size;
@@ -170,7 +210,7 @@ public class ImageListAdapter extends RecyclerView.Adapter<ImageListAdapter.View
 
 
             // 设置选中状态
-            holder.selectedIndicator.setVisibility(image.isSelected() ? View.VISIBLE : View.INVISIBLE);
+            //holder.selectedIndicator.setVisibility(image.isSelected() ? View.VISIBLE : View.INVISIBLE);
 
             // 设置当前显示状态
             holder.displayingIndicator.setVisibility(

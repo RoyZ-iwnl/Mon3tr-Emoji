@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -23,6 +24,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
+        android:layout_marginBottom="72dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
@@ -61,7 +63,7 @@
                             android:layout_height="24dp"
                             android:layout_marginEnd="12dp"
                             android:src="@drawable/ic_device_status"
-                            android:tint="?attr/colorPrimary" />
+                            app:tint="?attr/colorPrimary" />
 
                         <TextView
                             android:layout_width="0dp"
@@ -106,7 +108,7 @@
                                 android:layout_height="32dp"
                                 android:layout_marginBottom="8dp"
                                 android:src="@drawable/ic_timer"
-                                android:tint="?attr/colorSecondary" />
+                                app:tint="?attr/colorSecondary" />
 
                             <TextView
                                 android:layout_width="wrap_content"
@@ -117,7 +119,7 @@
                                 android:textSize="12sp" />
 
                             <TextView
-                                android:id="@+id/battery_level"
+                                android:id="@+id/uptime"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="--"
@@ -144,7 +146,7 @@
                                 android:layout_height="32dp"
                                 android:layout_marginBottom="8dp"
                                 android:src="@drawable/ic_storage"
-                                android:tint="?attr/colorSecondary" />
+                                app:tint="?attr/colorSecondary" />
 
                             <TextView
                                 android:layout_width="wrap_content"
@@ -183,7 +185,7 @@
                                 android:layout_height="32dp"
                                 android:layout_marginBottom="8dp"
                                 android:src="@drawable/ic_bluetooth_disabled"
-                                android:tint="@color/gray_500" />
+                                app:tint="@color/gray_500" />
 
                             <TextView
                                 android:layout_width="wrap_content"
@@ -239,7 +241,7 @@
                             android:layout_height="24dp"
                             android:layout_marginEnd="12dp"
                             android:src="@drawable/ic_control_panel"
-                            android:tint="?attr/colorPrimary" />
+                            app:tint="?attr/colorPrimary" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -335,7 +337,7 @@
                             android:layout_height="24dp"
                             android:layout_marginEnd="12dp"
                             android:src="@drawable/ic_image_gallery"
-                            android:tint="?attr/colorPrimary" />
+                            app:tint="?attr/colorPrimary" />
 
                         <TextView
                             android:layout_width="0dp"
@@ -396,7 +398,7 @@
                             android:layout_height="80dp"
                             android:layout_marginBottom="16dp"
                             android:src="@drawable/ic_empty_gallery"
-                            android:tint="?attr/outline" />
+                            app:tint="?attr/outline" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -419,28 +421,101 @@
 
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- 日志显示区域 -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/log_card_container"
+                style="@style/CardView.Modern"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="250dp"
+                android:maxHeight="400dp"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="?attr/colorSurface"
+                app:strokeColor="?attr/outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- 日志区标题 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="16dp"
+                        android:background="?attr/surfaceVariant">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginEnd="12dp"
+                            android:src="@drawable/ic_terminal"
+                            app:tint="?attr/colorPrimary" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="日志"
+                            android:textAppearance="@style/TextAppearance.Headline"
+                            android:textSize="18sp" />
+
+                        <!-- 自动滚动开关
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/auto_scroll_button"
+                            style="@style/Widget.Material3.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="手动模式"
+                            android:textSize="12sp"
+                            android:layout_marginEnd="8dp"/>-->
+
+                        <!-- 清除按钮 -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/clear_log_button"
+                            style="@style/Widget.Material3.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="清除"
+                            android:textSize="12sp"/>
+
+                    </LinearLayout>
+
+                    <!-- 日志内容区域 - 使用单独的ScrollView -->
+                    <ScrollView
+                        android:id="@+id/log_scroll_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="200dp"
+                        android:padding="12dp"
+                        android:scrollbars="vertical"
+                        android:scrollbarStyle="insideOverlay"
+                        android:fadeScrollbars="false"
+                        android:fillViewport="true">
+
+                        <TextView
+                            android:id="@+id/log_text_view"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="12sp"
+                            android:textAppearance="@style/TextAppearance.Body"
+                            android:fontFamily="monospace"
+                            android:lineSpacingExtra="2dp"
+                            android:padding="8dp"
+                            android:textIsSelectable="true" />
+
+                    </ScrollView>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>
-
-    <!-- 日志显示区域 -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/log_card"
-        android:layout_width="match_parent"
-        android:layout_height="200dp"
-        android:layout_gravity="bottom"
-        android:layout_margin="16dp"
-        android:visibility="gone"
-        app:cardBackgroundColor="?attr/colorSurface"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp">
-
-        <gg.dmr.royz.m3.view.LogDisplayView
-            android:id="@+id/log_display"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-
-    </com.google.android.material.card.MaterialCardView>
 
     <!-- 传输进度覆盖层 -->
     <FrameLayout
@@ -508,29 +583,45 @@
 
     </FrameLayout>
 
-    <!-- 关于按钮 -->
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/fab_about"
-        android:layout_width="wrap_content"
+    <!-- 底部按钮栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|start"
-        android:layout_margin="16dp"
-        android:text="关于"
-        app:backgroundTint="?attr/colorPrimary"
-        app:icon="@drawable/ic_info"
-        app:tint="?attr/colorOnPrimary" />
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:background="?attr/colorSurface"
+        android:elevation="8dp"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp">
 
-    <!-- 浮动操作按钮 -->
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/fab_log_toggle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:text="日志"
-        app:backgroundTint="?attr/colorSecondary"
-        app:icon="@drawable/ic_terminal"
-        app:tint="?attr/colorOnSecondary" />
+        <!-- 关于按钮 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/fab_about"
+            style="@style/Widget.Material3.Button.TextButton.Icon"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="关于"
+            android:textSize="14sp"
+            app:icon="@drawable/ic_info"
+            app:iconGravity="start"
+            app:iconSize="20dp" />
 
+        <!-- 日志按钮 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/fab_log_toggle"
+            style="@style/Widget.Material3.Button.TextButton.Icon"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="日志"
+            android:textSize="14sp"
+            app:icon="@drawable/ic_terminal"
+            app:iconGravity="start"
+            app:iconSize="20dp" />
+
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

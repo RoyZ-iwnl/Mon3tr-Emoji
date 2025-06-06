@@ -1,29 +1,29 @@
 /*
  * Mon3tr Emoji - ESP32-C3 BLE Project and Android APP for custom display
  * Copyright (C) 2025  RoyZ-iwnl
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * 本程序是自由软件，在自由软件联盟发布的GNU通用公共许可证条款下，
  * 你可以对其进行再发布及修改。协议版本为第三版或（随你）更新的版本。
- * 
+ *
  * 本程序的发布是希望它能够有用，但不负任何担保责任；
  * 具体详情请参见GNU通用公共许可证。
- * 
+ *
  * 你理当已收到一份GNU通用公共许可证的副本。
  * 如果没有，请查阅<https://www.gnu.org/licenses/>
- * 
+ *
  * Contact/联系方式: Roy@DMR.gg
  */
 package gg.dmr.royz.m3.view;
@@ -51,6 +51,9 @@ public class LogDisplayView extends LinearLayout implements LogUtil.LogListener 
     private StringBuilder logBuilder = new StringBuilder();
     private static final int MAX_LOG_LENGTH = 8000; // 防止日志过长导致性能问题
 
+    // 添加自动滚动控制变量
+    private boolean autoScrollEnabled = true; // 默认开启自动滚动
+
     public LogDisplayView(Context context) {
         super(context);
         init(context);
@@ -76,7 +79,9 @@ public class LogDisplayView extends LinearLayout implements LogUtil.LogListener 
         clearButton = findViewById(R.id.clear_log_button);
 
         // 设置清除按钮点击事件
-        clearButton.setOnClickListener(v -> clearLog());
+        if (clearButton != null) {
+            clearButton.setOnClickListener(v -> clearLog());
+        }
 
         // 注册日志监听器
         LogUtil.setLogListener(this);
@@ -107,19 +112,33 @@ public class LogDisplayView extends LinearLayout implements LogUtil.LogListener 
             // 更新文本
             logTextView.setText(logBuilder.toString());
 
-            // 自动滚动到底部
-            scrollView.post(() -> scrollView.fullScroll(ScrollView.FOCUS_DOWN));
+            // 只有在启用自动滚动时才滚动到底部
+            if (autoScrollEnabled) {
+                scrollView.post(() -> scrollView.fullScroll(ScrollView.FOCUS_DOWN));
+            }
         });
+    }
+
+    // 设置自动滚动开关
+    public void setAutoScrollEnabled(boolean enabled) {
+        this.autoScrollEnabled = enabled;
+    }
+
+    // 获取自动滚动状态
+    public boolean isAutoScrollEnabled() {
+        return autoScrollEnabled;
+    }
+
+    // 手动滚动到底部
+    public void scrollToBottom() {
+        if (scrollView != null) {
+            scrollView.post(() -> scrollView.fullScroll(ScrollView.FOCUS_DOWN));
+        }
     }
 
     // 清除日志
     public void clearLog() {
         logBuilder.setLength(0);
         logTextView.setText("");
-    }
-
-    // 获取日志内容
-    public String getLogContent() {
-        return logBuilder.toString();
     }
 }

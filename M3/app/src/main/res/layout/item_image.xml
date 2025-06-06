@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/image_card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="4dp"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="2dp">
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:strokeWidth="2dp"
+    app:strokeColor="@color/transparent">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/item_container"
@@ -41,7 +45,7 @@
             android:text="图片名称"
             android:textSize="16sp"
             android:textStyle="bold"
-            app:layout_constraintEnd_toStartOf="@id/selected_indicator"
+            app:layout_constraintEnd_toStartOf="@id/status_indicators"
             app:layout_constraintStart_toEndOf="@id/image_index"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -72,27 +76,34 @@
             app:layout_constraintStart_toEndOf="@id/image_size"
             app:layout_constraintTop_toBottomOf="@id/image_name" />
 
-        <!-- 选中指示器 -->
-        <ImageView
-            android:id="@+id/selected_indicator"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@android:drawable/ic_menu_edit"
-            android:visibility="invisible"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/displaying_indicator"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <!-- 当前显示指示器 -->
-        <ImageView
-            android:id="@+id/displaying_indicator"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@android:drawable/ic_menu_view"
-            android:visibility="invisible"
+        <!-- 状态指示器区域 -->
+        <LinearLayout
+            android:id="@+id/status_indicators"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent">
+
+            <!-- 选中状态小圆点
+            <View
+                android:id="@+id/selected_indicator"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/indicator_dot"
+                android:visibility="invisible" />-->
+
+            <!-- 正在显示状态小圆点 -->
+            <View
+                android:id="@+id/displaying_indicator"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:background="@drawable/indicator_dot"
+                android:visibility="invisible" />
+
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-</androidx.cardview.widget.CardView>
+</com.google.android.material.card.MaterialCardView>

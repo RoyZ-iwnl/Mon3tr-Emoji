@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+    <color name="transparent">#00000000</color>
     <!-- 主色调 - 蓝色系 -->
     <color name="blue_50">#E3F2FD</color>
     <color name="blue_100">#BBDEFB</color>
@@ -73,4 +74,5 @@
     <color name="colorPrimary">@color/light_primary</color>
     <color name="colorPrimaryDark">@color/light_primary_variant</color>
     <color name="colorAccent">@color/light_secondary</color>
+
 </resources>
